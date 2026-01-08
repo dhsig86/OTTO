@@ -1,0 +1,42 @@
+{
+  "versao_protocolo": "1.0",
+  "ultima_atualizacao": "2025-10-25",
+  "dominios": {
+    "ouvido": {
+      "nome_exibicao": "Ouvido / Audição",
+      "sintomas_gatilho": ["dor_de_ouvido", "zumbido", "secrecao_no_ouvido", "surdez_subita"],
+      "patologias": [
+        {
+          "nome": "Otite Média Aguda",
+          "sinais_positivos_chave": ["otalgia", "febre", "hipoacusia"],
+          "regras_logicas": {
+            "peso_base": 0.25,
+            "modificadores": [
+              { "criterio": "febre_alta", "valor": ">39", "peso_extra": 0.10 },
+              { "criterio": "idade", "valor": "<6", "peso_extra": 0.10 }
+            ]
+          },
+          "referencia": "AAFP 2019; CURRENT Oto-HNS 3e ch.49",
+          "alerta_medico": "Verificar abaulamento de membrana timpânica."
+        },
+        {
+          "nome": "Otite Externa Aguda",
+          "sinais_positivos_chave": ["otalgia", "dor_ao_toque", "otorreia"],
+          "regras_logicas": {
+            "peso_base": 0.20,
+            "modificadores": [
+              { "criterio": "trajetoria", "valor": "piorando", "peso_extra": 0.05 }
+            ]
+          },
+          "referencia": "AAO-HNS; CURRENT Oto-HNS 3e ch.47",
+          "alerta_medico": "Dor à tração do pavilhão é sinal clássico."
+        }
+      ]
+    },
+    "nariz": {
+      "nome_exibicao": "Nariz / Seios da Face",
+      "sintomas_gatilho": ["nariz_entupido", "coriza", "dor_na_face"],
+      "patologias": []
+    }
+  }
+}

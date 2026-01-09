@@ -1,3 +1,4 @@
+# Versao do Backend: 0.3.1 (Fix Python Version)
 import json
 import os
 from fastapi import FastAPI, HTTPException

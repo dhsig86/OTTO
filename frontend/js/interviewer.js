@@ -2,7 +2,7 @@
 // Autor: Dr. Dario & CTO Interino
 // Data: Jan 2026
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = "https://otto-api-dario.herokuapp.com";
 let conhecimentoMedico = null;
 
 // --- MEMÓRIA DO PACIENTE (State) ---

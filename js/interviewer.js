@@ -1,23 +1,25 @@
-// THE INTERVIEWER v5 - Professional MVP
-// Foco: UX, QP Real e Formatação de Prontuário
+// THE INTERVIEWER v6 - Professional MVP + Consentimento
+// Inovações: Nome do Paciente, LGPD Check, Print Layout, Reset Button
 
-// SEU ENDEREÇO HEROKU AQUI (Mantenha o que você já descobriu)
 const API_URL = "https://otto-api-dario-3a4d4f90581b.herokuapp.com"; 
 
 let conhecimentoMedico = null;
 
 // --- MEMÓRIA DO PACIENTE ---
 let dadosPaciente = {
+    nome: "",           // NOVO
+    consentimento: false, // NOVO
     demografia: { idade: "", sexo: "" },
-    qp_real: "", // A fala do paciente ("tô com dor e ouvido abafado")
+    qp_real: "", 
     sintomasGerais: [],
     regioesAfetadas: [],
     detalhesSintomas: [],
-    tempoEvolucao: "" // "começou ontem"
+    tempoEvolucao: ""
 };
 
+// CONTROLE DE ETAPAS
 let etapaAtual = 0; 
-// 0=Intro, 1=Demo, 2=QP(Texto), 3=Geral, 4=Mapa, 5=Detalhes, 6=Tempo, 7=Fim
+// 0=Intro, 1=Consentimento/Nome, 2=Demo, 3=QP, 4=Geral, 5=Mapa, 6=Detalhes, 7=Tempo, 8=Relatório
 
 // INICIALIZAÇÃO
 document.addEventListener("DOMContentLoaded", async () => {
@@ -27,7 +29,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         console.log("Heart OK");
     } catch (erro) {
         console.error(erro);
-        adicionarBalaoOtto("⚠️ Modo Offline. O servidor parece estar dormindo.");
+        adicionarBalaoOtto("⚠️ O sistema está offline (Erro de conexão com o Cérebro).");
     }
 });
 
@@ -37,31 +39,68 @@ function iniciarTriagem() {
     proximaEtapa();
 }
 
-// GERENCIADOR DE FLUXO
 function proximaEtapa() {
     etapaAtual++;
 
-    // Verifica carregamento
-    if (!conhecimentoMedico && etapaAtual > 1) {
-        adicionarBalaoOtto("Aguardando sistema médico...");
-        setTimeout(proximaEtapa, 1000);
+    // Verifica se Heart carregou
+    if (!conhecimentoMedico && etapaAtual > 2) { // Deixa passar nome/demo sem heart
+        adicionarBalaoOtto("Conectando ao banco de dados médico... Aguarde.");
+        setTimeout(proximaEtapa, 1500);
         return;
     }
 
     switch (etapaAtual) {
-        case 1: fluxoDemografia(); break;
-        case 2: fluxoQPReal(); break; // NOVA ETAPA
-        case 3: fluxoGeral(); break;
-        case 4: fluxoSelecaoRegioes(); break;
-        case 5: fluxoInvestigacaoEspecifica(); break;
-        case 6: fluxoTempoEvolucao(); break; // NOVA ETAPA
-        case 7: finalizarTriagem(); break;
+        case 1: fluxoConsentimento(); break; // NOVA ETAPA
+        case 2: fluxoDemografia(); break;
+        case 3: fluxoQPReal(); break;
+        case 4: fluxoGeral(); break;
+        case 5: fluxoSelecaoRegioes(); break;
+        case 6: fluxoInvestigacaoEspecifica(); break;
+        case 7: fluxoTempoEvolucao(); break;
+        case 8: finalizarTriagem(); break;
     }
 }
 
-// --- 1. DEMOGRAFIA ---
+// --- 1. CONSENTIMENTO & NOME ---
+function fluxoConsentimento() {
+    adicionarBalaoOtto("Para começarmos, por favor digite seu nome completo e confirme o uso dos dados.");
+    
+    document.getElementById('input-area').innerHTML = `
+        <div class="flex flex-col gap-3 bg-white p-1">
+            <input type="text" id="input-nome" class="w-full p-3 border border-slate-300 rounded-xl outline-none focus:border-blue-500 font-medium" placeholder="Seu Nome Completo">
+            
+            <label class="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition">
+                <input type="checkbox" id="check-consentimento" class="w-5 h-5 mt-0.5 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                <span class="text-xs text-slate-600 leading-tight">
+                    Concordo em fornecer meus dados de saúde para fins de triagem e atendimento médico com o Dr. Dario Hart.
+                </span>
+            </label>
+            
+            <button onclick="salvarConsentimento()" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-md hover:bg-blue-700 transition">
+                Confirmar e Continuar
+            </button>
+        </div>
+    `;
+    setTimeout(() => document.getElementById('input-nome').focus(), 300);
+}
+
+function salvarConsentimento() {
+    const nome = document.getElementById('input-nome').value.trim();
+    const check = document.getElementById('check-consentimento').checked;
+    
+    if (nome.length < 3) return alert("Por favor, digite seu nome completo.");
+    if (!check) return alert("É necessário aceitar o termo de consentimento para prosseguir.");
+    
+    dadosPaciente.nome = nome;
+    dadosPaciente.consentimento = true;
+    
+    adicionarBalaoUsuario(`Sou ${nome}, aceito os termos.`);
+    setTimeout(proximaEtapa, 400);
+}
+
+// --- 2. DEMOGRAFIA ---
 function fluxoDemografia() {
-    adicionarBalaoOtto("Primeiro, preciso da identificação para o prontuário.");
+    adicionarBalaoOtto(`Obrigado, ${dadosPaciente.nome.split(" ")[0]}. Agora, sua idade e sexo biológico.`);
     
     document.getElementById('input-area').innerHTML = `
         <div class="flex gap-2 items-end bg-white p-1">
@@ -82,7 +121,6 @@ function fluxoDemografia() {
             </button>
         </div>
     `;
-    setTimeout(() => document.getElementById('input-idade').focus(), 300);
 }
 
 function salvarDemografia() {
@@ -95,13 +133,12 @@ function salvarDemografia() {
     setTimeout(proximaEtapa, 400);
 }
 
-// --- 2. QUEIXA PRINCIPAL (TEXTO LIVRE) ---
+// --- 3. QP REAL ---
 function fluxoQPReal() {
-    adicionarBalaoOtto("Em poucas palavras, o que você está sentindo hoje?");
-    
+    adicionarBalaoOtto("Em poucas palavras: o que você está sentindo?");
     document.getElementById('input-area').innerHTML = `
         <div class="flex gap-2 w-full">
-            <input type="text" id="input-qp" class="flex-1 p-3 border border-slate-300 rounded-xl outline-none focus:border-blue-500 shadow-sm" placeholder="Ex: Dor de ouvido forte...">
+            <input type="text" id="input-qp" class="flex-1 p-3 border border-slate-300 rounded-xl outline-none focus:border-blue-500 shadow-sm" placeholder="Ex: Dor no ouvido direito...">
             <button onclick="salvarQP()" class="bg-blue-600 text-white px-6 rounded-xl font-bold hover:bg-blue-700 transition">Enviar</button>
         </div>
     `;
@@ -116,9 +153,9 @@ function salvarQP() {
     setTimeout(proximaEtapa, 400);
 }
 
-// --- 3. GERAL (IS) ---
+// --- 4. GERAL ---
 function fluxoGeral() {
-    adicionarBalaoOtto("Você apresenta algum destes sintomas gerais?");
+    adicionarBalaoOtto("Você tem sentido algum destes sintomas gerais?");
     const gerais = conhecimentoMedico.anamnese_geral.sintomas_sistemicos;
     
     let html = '<div class="flex flex-wrap gap-2 justify-center pb-2">';
@@ -128,14 +165,12 @@ function fluxoGeral() {
     });
     html += '</div>';
     html += '<button onclick="proximaEtapa()" class="w-full bg-slate-800 text-white py-3 rounded-xl font-bold shadow-lg">Continuar</button>';
-    
     document.getElementById('input-area').innerHTML = html;
 }
 
 function toggleSintomaGeral(sintoma) {
     const btn = document.getElementById(`btn-geral-${sintoma}`);
     const index = dadosPaciente.sintomasGerais.indexOf(sintoma);
-    
     if (index === -1) {
         dadosPaciente.sintomasGerais.push(sintoma);
         btn.className = "px-4 py-2 bg-red-50 border border-red-200 text-red-600 rounded-full text-sm font-bold shadow-inner ring-1 ring-red-200 transition";
@@ -145,9 +180,9 @@ function toggleSintomaGeral(sintoma) {
     }
 }
 
-// --- 4. MAPA (Regiões) ---
+// --- 5. MAPA ---
 function fluxoSelecaoRegioes() {
-    adicionarBalaoOtto("Toque nas regiões onde o problema está localizado:");
+    adicionarBalaoOtto("Toque nas regiões onde está o problema:");
     const dominios = Object.keys(conhecimentoMedico.dominios);
     
     let html = '<div class="grid grid-cols-2 gap-2 mb-3">';
@@ -161,14 +196,12 @@ function fluxoSelecaoRegioes() {
     });
     html += '</div>';
     html += '<button onclick="validarRegioes()" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-blue-200">Avançar</button>';
-    
     document.getElementById('input-area').innerHTML = html;
 }
 
 function toggleRegiao(key) {
     const btn = document.getElementById(`reg-${key}`);
     const index = dadosPaciente.regioesAfetadas.indexOf(key);
-    
     if (index === -1) {
         dadosPaciente.regioesAfetadas.push(key);
         btn.classList.add('bg-blue-50', 'border-blue-500', 'ring-1', 'ring-blue-500');
@@ -184,7 +217,7 @@ function validarRegioes() {
     setTimeout(proximaEtapa, 400);
 }
 
-// --- 5. DETALHES ---
+// --- 6. DETALHES ---
 function fluxoInvestigacaoEspecifica() {
     let lista = [];
     dadosPaciente.regioesAfetadas.forEach(r => {
@@ -192,7 +225,7 @@ function fluxoInvestigacaoEspecifica() {
     });
     const unicos = [...new Set(lista)];
     
-    adicionarBalaoOtto("Selecione os detalhes:");
+    adicionarBalaoOtto("Selecione os detalhes específicos:");
     
     let html = '<div class="flex flex-wrap gap-2 justify-center pb-3">';
     unicos.forEach(s => {
@@ -216,13 +249,12 @@ function toggleDetalhe(s) {
     }
 }
 
-// --- 6. TEMPO DE EVOLUÇÃO (HDA) ---
+// --- 7. TEMPO ---
 function fluxoTempoEvolucao() {
     adicionarBalaoOtto("Há quanto tempo isso está acontecendo?");
-    
     document.getElementById('input-area').innerHTML = `
         <div class="flex gap-2 w-full">
-            <input type="text" id="input-tempo" class="flex-1 p-3 border border-slate-300 rounded-xl outline-none focus:border-blue-500" placeholder="Ex: Começou ontem à noite...">
+            <input type="text" id="input-tempo" class="flex-1 p-3 border border-slate-300 rounded-xl outline-none focus:border-blue-500" placeholder="Ex: Começou ontem...">
             <button onclick="salvarTempo()" class="bg-green-600 text-white px-6 rounded-xl font-bold hover:bg-green-700 shadow-lg shadow-green-200">Finalizar</button>
         </div>
     `;
@@ -237,7 +269,7 @@ function salvarTempo() {
     setTimeout(proximaEtapa, 400);
 }
 
-// --- 7. FINALIZAÇÃO & WRITER (THE REPORT) ---
+// --- 8. FINALIZAÇÃO & REPORT ---
 async function finalizarTriagem() {
     adicionarBalaoOtto("Gerando prontuário e analisando dados... ⏳");
     document.getElementById('input-area').innerHTML = '<div class="text-center text-xs text-slate-400 py-4 uppercase font-bold tracking-widest">Atendimento Finalizado</div>';
@@ -255,79 +287,85 @@ async function finalizarTriagem() {
             method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload)
         });
         const resultado = await res.json();
-        
         exibirProntuarioFormal(resultado.hipoteses);
-        
     } catch (e) {
         console.error(e);
-        adicionarBalaoOtto("Erro de conexão. Gerando relatório offline.");
+        adicionarBalaoOtto("Modo Offline. Gerando relatório local.");
         exibirProntuarioFormal([]);
     }
 }
 
-// --- VISUALIZAÇÃO DO PRONTUÁRIO (ESTILO ANAMNESE) ---
 function exibirProntuarioFormal(hipoteses) {
     const chat = document.getElementById('chat-container');
     
-    // Converte lista de hipóteses em texto formatado, mas escondido
-    let textoHipoteses = "Sem dados suficientes.";
+    let textoHipoteses = "Sem dados probabilísticos suficientes.";
     if (hipoteses.length > 0) {
         textoHipoteses = hipoteses.map(h => `• ${h.doenca} (${h.probabilidade}%)\n   Base: ${h.baseado_em.join(", ")}`).join("\n");
     }
 
-    // Formatação de Prontuário Médico Padrão
-    const textoProntuario = `
-ANAMNESE OTORRINOLARINGOLÓGICA (Triagem OTTO)
-Data: ${new Date().toLocaleString('pt-BR')}
+    // Texto para cópia rápida
+    const textoCopia = `PACIENTE: ${dadosPaciente.nome}\nID: ${dadosPaciente.demografia.idade}a, ${dadosPaciente.demografia.sexo}.\nQP: ${dadosPaciente.qp_real}\nHDA: ${dadosPaciente.detalhesSintomas.join(", ")}. Evolução: ${dadosPaciente.tempoEvolucao}.\nIS: ${dadosPaciente.sintomasGerais.join(", ")}.`;
 
-ID: ${dadosPaciente.demografia.idade} anos, ${dadosPaciente.demografia.sexo}.
-
-QP: "${dadosPaciente.qp_real}"
-
-HDA: Paciente refere queixa localizada em ${dadosPaciente.regioesAfetadas.map(formatarTexto).join(" e ")}.
-Sintomas específicos: ${dadosPaciente.detalhesSintomas.map(formatarTexto).join(", ")}.
-Evolução/Tempo: ${dadosPaciente.tempoEvolucao}.
-
-IS (Geral): ${dadosPaciente.sintomasGerais.length ? dadosPaciente.sintomasGerais.map(formatarTexto).join(", ") : "Nega febre ou perda de peso."}
-
-HIPÓTESES DIAGNÓSTICAS (Sugestão IA):
-${textoHipoteses}
-    `.trim();
-
-    // Criação do Card Visual
     const div = document.createElement('div');
     div.className = "fade-in mt-6 mx-auto w-full bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mb-20";
+    div.id = "printable-area"; // IMPORTANTE PARA O CSS @media print
     
     div.innerHTML = `
-        <div class="bg-slate-100 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
-            <span class="text-xs font-bold text-slate-500 uppercase">Resumo de Triagem</span>
-            <span class="text-[10px] bg-white border px-2 py-0.5 rounded text-slate-400">#OTTO</span>
+        <div class="bg-slate-800 px-5 py-4 border-b border-slate-700 flex justify-between items-start text-white">
+            <div class="flex flex-col">
+                <span class="text-xs font-bold uppercase opacity-80 tracking-wider">Otoclinica Hart</span>
+                <span class="text-lg font-bold">${dadosPaciente.nome}</span>
+                <span class="text-xs opacity-70 mt-1">ID: ${dadosPaciente.demografia.idade} anos, ${dadosPaciente.demografia.sexo}</span>
+            </div>
+            <div class="text-right">
+                <span class="text-[10px] bg-slate-700 px-2 py-1 rounded border border-slate-600 block mb-1">Protocolo #${Math.floor(Math.random()*10000)}</span>
+                <span class="text-xs opacity-70">${new Date().toLocaleDateString()}</span>
+            </div>
         </div>
         
-        <div class="p-4 text-sm text-slate-700 font-mono whitespace-pre-wrap leading-relaxed bg-slate-50" id="area-texto-copiar">
-ID: ${dadosPaciente.demografia.idade}a, ${dadosPaciente.demografia.sexo}.
-QP: "${dadosPaciente.qp_real}"
-HDA: ${dadosPaciente.detalhesSintomas.map(formatarTexto).join(", ")} em ${dadosPaciente.regioesAfetadas.join("/")}. ${dadosPaciente.tempoEvolucao}.
-IS: ${dadosPaciente.sintomasGerais.length ? dadosPaciente.sintomasGerais.join(", ") : "Nega gerais"}.
+        <div class="p-6 text-sm text-slate-800 font-mono leading-relaxed bg-white">
+            <div class="mb-5 pb-5 border-b border-dashed border-slate-200">
+                <p class="text-xs text-slate-400 font-bold uppercase mb-1">Queixa Principal (Paciente)</p>
+                <p class="text-lg font-medium">"${dadosPaciente.qp_real}"</p>
+            </div>
+
+            <div class="mb-5">
+                <p class="text-xs text-slate-400 font-bold uppercase mb-1">HDA / Exame Físico Dirigido</p>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li><strong>Sintomas Referidos:</strong> ${dadosPaciente.detalhesSintomas.map(s => formatarTexto(s)).join(", ")}</li>
+                    <li><strong>Região Anatômica:</strong> ${dadosPaciente.regioesAfetadas.map(formatarTexto).join(", ")}</li>
+                    <li><strong>Tempo de Evolução:</strong> ${dadosPaciente.tempoEvolucao}</li>
+                </ul>
+            </div>
+            
+            <div class="mb-5">
+                 <p class="text-xs text-slate-400 font-bold uppercase mb-1">Interrogatório Sistêmico (IS)</p>
+                 <p>${dadosPaciente.sintomasGerais.length ? dadosPaciente.sintomasGerais.map(formatarTexto).join(", ") : "Nega sintomas sistêmicos (febre, perda de peso, etc)."}</p>
+            </div>
+            
+            <div class="mt-6 p-4 bg-slate-50 border border-slate-200 rounded">
+                <p class="font-bold text-xs text-slate-500 uppercase mb-2">Hipóteses Diagnósticas (IA OTTO)</p>
+                <details class="group">
+                    <summary class="cursor-pointer text-xs text-blue-600 hover:underline list-none no-print">▶ Ver Análise</summary>
+                    <pre class="whitespace-pre-wrap text-xs mt-2 text-slate-700">${textoHipoteses}</pre>
+                </details>
+                <div class="hidden print:block text-xs text-slate-700 whitespace-pre-wrap mt-2">
+                    ${textoHipoteses}
+                </div>
+            </div>
+
+            <div class="mt-8 pt-4 border-t border-slate-100 text-[10px] text-slate-400 text-center">
+                <p>Consentimento informado obtido digitalmente em ${new Date().toLocaleString()}.</p>
+                <p>Ferramenta de apoio à decisão clínica. Não substitui avaliação médica.</p>
+            </div>
         </div>
 
-        <details class="border-t border-slate-200 group">
-            <summary class="cursor-pointer px-4 py-3 bg-slate-50 hover:bg-yellow-50 transition flex items-center justify-between">
-                <span class="text-xs font-bold text-slate-500 group-hover:text-yellow-700">🔒 ÁREA MÉDICA (DIAGNÓSTICO)</span>
-                <span class="text-slate-400 text-xs">▼</span>
-            </summary>
-            <div class="p-4 bg-yellow-50 text-xs font-mono text-slate-800 border-t border-yellow-100">
-                ${textoHipoteses.replace(/\n/g, '<br>')}
-                <div class="mt-2 text-[10px] text-yellow-700 opacity-70">*Sugestão probabilística baseada em protocolo. Necessita validação clínica.*</div>
-            </div>
-        </details>
-
-        <div class="p-3 bg-white border-t border-slate-200 flex gap-2">
-            <button onclick="copiarProntuario(\`${textoProntuario}\`)" class="flex-1 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-bold hover:bg-blue-100 transition flex items-center justify-center gap-2">
-                📋 Copiar Tudo
+        <div class="p-4 bg-slate-50 border-t border-slate-200 flex gap-3 no-print">
+            <button onclick="window.print()" class="flex-1 py-3 bg-slate-800 text-white rounded-xl text-sm font-bold shadow-lg hover:bg-slate-700 transition flex items-center justify-center gap-2">
+                🖨️ Imprimir / PDF
             </button>
-            <button onclick="location.reload()" class="px-4 py-2 text-slate-400 hover:text-red-500 transition text-sm font-bold">
-                Novo
+            <button onclick="copiarProntuario(\`${textoCopia}\`)" class="flex-1 py-3 bg-white border border-slate-300 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-50 transition">
+                📋 Copiar Texto
             </button>
         </div>
     `;
@@ -337,9 +375,7 @@ IS: ${dadosPaciente.sintomasGerais.length ? dadosPaciente.sintomasGerais.join(",
 }
 
 function copiarProntuario(texto) {
-    navigator.clipboard.writeText(texto).then(() => {
-        alert("Prontuário copiado! Pode colar no seu sistema.");
-    });
+    navigator.clipboard.writeText(texto).then(() => alert("Prontuário copiado!"));
 }
 
 // Auxiliares

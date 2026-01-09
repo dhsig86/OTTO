@@ -11,43 +11,29 @@
         .fade-in { animation: fadeIn 0.4s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
-        /* --- ESTILOS DE IMPRESSÃO PROFISSIONAL --- */
         @media print {
-            body * { visibility: hidden; } /* Esconde a interface do app */
-            #printable-area, #printable-area * { visibility: visible; } /* Mostra só o relatório */
-            
+            body * { visibility: hidden; }
+            #printable-area, #printable-area * { visibility: visible; }
             #printable-area { 
-                position: absolute; 
-                left: 0; 
-                top: 0; 
-                width: 100%;
-                margin: 0;
-                padding: 20px;
-                background: white;
-                color: black;
-                border: none;
-                box-shadow: none;
-                font-size: 12pt; /* Tamanho bom para leitura em papel */
+                position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 20px;
+                background: white; color: black; border: none; font-size: 12pt;
             }
-            
-            /* Esconde elementos de UI (botões) na impressão */
-            .no-print { display: none !important; } 
-            
-            /* Garante que detalhes (diagnóstico) apareçam abertos se desejado, ou fechados */
+            .no-print { display: none !important; }
             details { display: block; border: 1px solid #ccc; margin-top: 10px; padding: 10px; }
-            summary { font-weight: bold; }
         }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 h-screen flex flex-col overflow-hidden">
 
-    <header class="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shrink-0 z-10">
+    <header class="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shrink-0 z-10 shadow-sm">
         <div class="flex items-center gap-2">
             <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">O</div>
             <h1 class="font-semibold text-slate-800 tracking-tight">OTTO</h1>
         </div>
-        <button onclick="if(confirm('Deseja iniciar um novo atendimento?')) location.reload()" class="p-2 text-slate-400 hover:text-blue-600 transition bg-slate-50 rounded-full border border-transparent hover:border-slate-200" title="Nova Triagem">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        
+        <button onclick="if(confirm('Tem certeza que deseja apagar tudo e recomeçar?')) location.reload()" class="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 text-xs font-bold rounded-lg border border-red-100 hover:bg-red-100 transition">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            Recomeçar
         </button>
     </header>
 
@@ -56,7 +42,7 @@
             <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-lg shrink-0 border border-blue-50">🤖</div>
             <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-slate-100 max-w-[85%]">
                 <p class="text-sm text-slate-600">Olá! Sou o assistente virtual do Dr. Dario.</p>
-                <p class="text-sm text-slate-600 mt-1">Vamos preparar sua consulta. Todas as informações são confidenciais.</p>
+                <p class="text-sm text-slate-600 mt-1">Vou preparar sua consulta. Seus dados são confidenciais.</p>
             </div>
         </div>
     </main>
@@ -64,7 +50,7 @@
     <footer class="bg-white border-t border-slate-200 p-4 shrink-0 pb-8 safe-area-bottom">
         <div id="input-area" class="w-full max-w-lg mx-auto min-h-[50px] flex flex-col justify-end">
             <button id="intro-btn" onclick="iniciarTriagem()" class="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-semibold py-3.5 px-6 rounded-xl transition-all shadow-lg shadow-blue-200 flex items-center justify-center gap-2">
-                <span>Começar</span>
+                <span>Começar Atendimento</span>
             </button>
         </div>
     </footer>

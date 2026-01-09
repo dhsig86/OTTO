@@ -8,10 +8,19 @@ from typing import List, Optional
 
 app = FastAPI(title="OTTO API - The Brain", version="0.3.0")
 
-# Configuração de Segurança (Permite o Frontend acessar)
+# --- CONFIGURAÇÃO DE SEGURANÇA (CORS) ---
+# Lista de sites permitidos (VIP List)
+origins = [
+    "http://localhost",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "https://dhsig86.github.io",  # <--- SEU SITE AQUI
+    "*"  # Tenta liberar geral também
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Permite que qualquer site (incluindo seu GitHub Pages) acesse
+    allow_origins=origins, # Usa a lista acima
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

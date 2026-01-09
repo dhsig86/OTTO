@@ -6,8 +6,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 
-app = FastAPI(title="OTTO API - The Brain", version="0.3.0")
-
+app = FastAPI(
+    title="OTTO API - Versão Segura CORS",  # Mudei o título
+    version="0.5.0-FIX",                    # Mudei a versão
+    description="Backend com CORS liberado para dhsig86.github.io"
+)
 # --- CONFIGURAÇÃO DE SEGURANÇA (CORS) ---
 # Lista de sites permitidos (VIP List)
 origins = [

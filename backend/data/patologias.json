@@ -1,313 +1,147 @@
 {
-  "versao_protocolo": "4.0-Top5",
-  "ultima_atualizacao": "2026-01-08",
+  "versao_protocolo": "7.0-Deep-Research",
+  "ultima_atualizacao": "2026-01-10",
   "anamnese_geral": {
-    "descricao": "Etapas 0 e 1 da triagem",
     "obrigatorios": [
       { "id": "idade", "texto": "Qual sua idade?", "tipo": "numero" },
-      { "id": "sexo", "texto": "Qual seu sexo biológico?", "tipo": "selecao", "opcoes": ["Masculino", "Feminino"] }
+      { "id": "sexo", "texto": "Qual seu sexo?", "tipo": "selecao", "opcoes": ["Masculino", "Feminino"] }
     ],
-    "sintomas_sistemicos": [
-      "febre", 
-      "perda_de_peso", 
-      "fraqueza_geral", 
-      "alergia_medicamentosa",
-      "diabetes_imunossupressao",
-      "toxemia",
-      "tabagismo_etilismo_pesado"
-    ]
+    "sintomas_sistemicos": ["febre", "perda_de_peso_inexplicada", "fraqueza_intensa", "alergia_medicamentosa"]
+  },
+  "fluxos_investigativos": {
+    "tontura": {
+      "pergunta": "Como é essa tontura e quanto tempo dura a crise?",
+      "opcoes": [
+        "Roda tudo rápido (< 1 min) ao deitar/virar",
+        "Roda forte por horas + ouvido tapado/zumbido",
+        "Tontura constante há dias + vômitos",
+        "Desequilíbrio + visão dupla ou fala enrolada"
+      ]
+    },
+    "dor_de_garganta": {
+      "pergunta": "Além da dor, você nota algum destes detalhes?",
+      "opcoes": [
+        "Tenho tosse e coriza também",
+        "Não tenho tosse, mas tenho febre alta",
+        "Dificuldade de abrir a boca (Trismo) ou voz de 'batata quente'",
+        "Apenas dor leve/pigarro crônico"
+      ]
+    },
+    "nariz_entupido": {
+      "pergunta": "Como evoluiu esse sintoma?",
+      "opcoes": [
+        "Começou há pouco tempo (< 5 dias)",
+        "Tinha melhorado, mas piorou de novo (Piora dupla)",
+        "Já dura mais de 10 dias sem melhorar",
+        "É crônico (meses/anos) e tenho alergia"
+      ]
+    },
+    "zumbido": {
+      "pergunta": "Como é esse zumbido?",
+      "opcoes": [
+        "Apito agudo contínuo",
+        "Chiado tipo TV ou cachoeira",
+        "Pulsátil (no ritmo do coração)",
+        "Estalos ou cliques"
+      ]
+    }
   },
   "dominios": {
     "ouvido": {
-      "nome_exibicao": "Ouvido",
-      "sintomas_gatilho": [
-        "dor_de_ouvido", "zumbido", "secrecao_no_ouvido", "surdez_subita", 
-        "tontura", "plenitude_auricular", "prurido_auricular", "tontura_ao_deitar"
+      "nome_exibicao": "Ouvido / Tontura",
+      "sintomas_gatilho": ["dor_de_ouvido", "tontura", "zumbido", "secrecao_no_ouvido", "surdez_subita"],
+      "sinais_alarme": [
+          { "id": "mastoidite", "texto": "Vermelhidão atrás da orelha" },
+          { "id": "surdez_subita", "texto": "Perda de audição súbita" }
       ],
       "patologias": [
         {
-          "nome": "Otite Média Aguda (OMA)",
-          "sinais_positivos_chave": ["dor_de_ouvido", "febre", "hipoacusia", "dor_noturna_intensa", "IVAS_recente"],
-          "regras_logicas": {
-            "peso_base": 0.20,
-            "modificadores": [
-              { "criterio": "febre_alta", "valor": ">38", "peso_extra": 0.15 },
-              { "criterio": "idade", "valor": "<10", "peso_extra": 0.15 }
-            ]
-          },
-          "referencia": "AAFP 2019; CURRENT Oto-HNS 3e ch.49",
-          "alerta_medico": "Verificar abaulamento/hiperemia de MT."
+          "nome": "VPPB (Vertigem Posicional)",
+          "sinais_positivos_chave": ["tontura", "roda tudo rápido (< 1 min) ao deitar/virar"],
+          "regras_logicas": { "peso_base": 0.30, "modificadores": [] },
+          "condutas_sugeridas": ["Manobra de Dix-Hallpike.", "Manobra de Epley."],
+          "sugestao_questionario": "DHI (Dizziness Handicap Inventory)",
+          "referencia": "Bárány Society"
         },
         {
-          "nome": "Otite Externa Aguda",
-          "sinais_positivos_chave": ["dor_de_ouvido", "dor_trago_pavilhao", "edema_conduto", "natacao_recente", "prurido_auricular"],
-          "regras_logicas": {
-            "peso_base": 0.20,
-            "modificadores": [
-              { "criterio": "dor_trago_pavilhao", "valor": true, "peso_extra": 0.35 },
-              { "criterio": "diabetes_imunossupressao", "valor": true, "peso_extra": 0.10 }
-            ]
-          },
-          "referencia": "AAO-HNS Guideline",
-          "alerta_medico": "Sinal do trago positivo. Em diabéticos, excluir OE Maligna."
+          "nome": "Doença de Menière",
+          "sinais_positivos_chave": ["tontura", "roda forte por horas + ouvido tapado/zumbido", "zumbido"],
+          "regras_logicas": { "peso_base": 0.15, "modificadores": [] },
+          "condutas_sugeridas": ["Audiometria.", "Dieta hipossódica."],
+          "referencia": "AAO-HNS"
         },
         {
-          "nome": "Disfunção Tubária",
-          "sinais_positivos_chave": ["plenitude_auricular", "hipoacusia", "zumbido", "estalos_no_ouvido", "pos_viagem_aviao"],
-          "regras_logicas": {
-            "peso_base": 0.15,
-            "modificadores": [
-              { "criterio": "ausencia_febre", "valor": true, "peso_extra": 0.10 },
-              { "criterio": "ausencia_dor_tragus", "valor": true, "peso_extra": 0.10 }
-            ]
-          },
-          "referencia": "AAO-HNS Eustachian Tube Dysfunction",
-          "alerta_medico": "Otoscopia pode mostrar retração ou nível líquido."
+          "nome": "AVC de Fossa Posterior (Alerta)",
+          "sinais_positivos_chave": ["desequilíbrio + visão dupla ou fala enrolada"],
+          "regras_logicas": { "peso_base": 0.05, "modificadores": [{ "criterio": "sintoma_focal", "valor": true, "peso_extra": 0.90 }] },
+          "condutas_sugeridas": ["EMERGÊNCIA: Protocolo AVC (HINTS).", "PS Imediato."],
+          "referencia": "Stroke Protocol"
         },
         {
-          "nome": "Rolha de Cerume",
-          "sinais_positivos_chave": ["plenitude_auricular", "hipoacusia", "q_tip_uso", "ausencia_dor"],
-          "regras_logicas": {
-            "peso_base": 0.15,
-            "modificadores": [
-              { "criterio": "inicio_apos_banho", "valor": true, "peso_extra": 0.20 },
-              { "criterio": "ausencia_febre", "valor": true, "peso_extra": 0.10 }
-            ]
-          },
-          "referencia": "AAO-HNS Cerumen Guideline",
-          "alerta_medico": "Confirmar com otoscopia antes de lavagem."
-        },
-        {
-          "nome": "VPPB / Labirintopatia Aguda",
-          "sinais_positivos_chave": ["tontura", "vertigem_rotatoria", "tontura_ao_deitar", "nauseas"],
-          "regras_logicas": {
-            "peso_base": 0.10,
-            "modificadores": [
-              { "criterio": "tontura_ao_deitar", "valor": true, "peso_extra": 0.40 },
-              { "criterio": "ausencia_perda_auditiva", "valor": true, "peso_extra": 0.10 }
-            ]
-          },
-          "referencia": "AAO-HNS BPPV Guideline",
-          "alerta_medico": "Realizar Dix-Hallpike se suspeita de VPPB."
-        }
-      ]
-    },
-    "nariz": {
-      "nome_exibicao": "Nariz",
-      "sintomas_gatilho": [
-        "nariz_entupido", "coriza", "dor_na_face", "sangramento_nasal", 
-        "espirros", "hiposmia", "rinorreia_purulenta", "tosse"
-      ],
-      "patologias": [
-        {
-          "nome": "Rinossinusite Viral (Resfriado/Gripe)",
-          "sinais_positivos_chave": ["coriza_hialina", "obstrucao_nasal", "tosse", "febre_baixa", "mialgia"],
-          "regras_logicas": {
-            "peso_base": 0.35,
-            "modificadores": [
-              { "criterio": "duracao_dias", "valor": "<10", "peso_extra": 0.20 }
-            ]
-          },
-          "referencia": "EPOS 2020",
-          "alerta_medico": "Tratamento de suporte. Evitar antibióticos."
-        },
-        {
-          "nome": "Rinossinusite Bacteriana Aguda",
-          "sinais_positivos_chave": ["dor_na_face", "rinorreia_purulenta", "piora_48_72h", "cacosmia"],
-          "regras_logicas": {
-            "peso_base": 0.15,
-            "modificadores": [
-              { "criterio": "piora_48_72h", "valor": true, "peso_extra": 0.30 },
-              { "criterio": "duracao_dias", "valor": ">10", "peso_extra": 0.25 }
-            ]
-          },
-          "referencia": "AAO-HNS Acute Sinusitis",
-          "alerta_medico": "Critério de tempo (>10 dias) ou dupla piora."
-        },
-        {
-          "nome": "Rinite Alérgica",
-          "sinais_positivos_chave": ["espirros", "coriza_clara", "obstrucao_nasal", "prurido_nasal", "lacrimejamento"],
-          "regras_logicas": {
-            "peso_base": 0.25,
-            "modificadores": [
-              { "criterio": "espirros", "valor": true, "peso_extra": 0.20 },
-              { "criterio": "ausencia_febre", "valor": true, "peso_extra": 0.10 }
-            ]
-          },
-          "referencia": "ARIA Guidelines",
-          "alerta_medico": "Avaliar cornetos pálidos/hipertrofiados."
-        },
-        {
-          "nome": "Epistaxe (Sangramento Nasal)",
-          "sinais_positivos_chave": ["sangramento_nasal", "historia_trauma", "uso_anticoagulante", "hipertensao"],
-          "regras_logicas": {
-            "peso_base": 0.10,
-            "modificadores": [
-              { "criterio": "sangramento_nasal", "valor": true, "peso_extra": 0.80 }
-            ]
-          },
-          "referencia": "AAO-HNS Epistaxis",
-          "alerta_medico": "Verificar PA. Identificar ponto sangrante (Kiesselbach)."
-        },
-        {
-          "nome": "Obstrução Nasal Crônica (Septo/Cornetos)",
-          "sinais_positivos_chave": ["nariz_entupido", "ronco", "respiracao_bucal", "uso_descongestionante_topico"],
-          "regras_logicas": {
-            "peso_base": 0.10,
-            "modificadores": [
-              { "criterio": "duracao_dias", "valor": ">30", "peso_extra": 0.30 },
-              { "criterio": "ausencia_febre", "valor": true, "peso_extra": 0.10 }
-            ]
-          },
-          "referencia": "CURRENT Oto-HNS 3e",
-          "alerta_medico": "Rinoscopia anterior para avaliar septo e cornetos."
+          "nome": "Otite Média Aguda",
+          "sinais_positivos_chave": ["dor_de_ouvido", "febre"],
+          "regras_logicas": { "peso_base": 0.20, "modificadores": [{ "criterio": "febre", "valor": true, "peso_extra": 0.20 }] },
+          "condutas_sugeridas": ["Otoscopia.", "Analgesia."],
+          "referencia": "AAFP"
         }
       ]
     },
     "garganta": {
       "nome_exibicao": "Garganta",
-      "sintomas_gatilho": [
-        "dor_de_garganta", "rouquidao", "dificuldade_engolir", "pigarro",
-        "sensacao_bola_garganta", "trismo", "exsudato_tonsilar"
+      "sintomas_gatilho": ["dor_de_garganta", "rouquidao", "dificuldade_engolir"],
+      "sinais_alarme": [
+          { "id": "dispneia", "texto": "Falta de ar / Estridor" },
+          { "id": "disfagia", "texto": "Não consegue engolir saliva" }
       ],
       "patologias": [
         {
-          "nome": "Faringoamigdalite Viral",
-          "sinais_positivos_chave": ["dor_de_garganta", "tosse", "coriza", "rouquidao", "aftas"],
-          "regras_logicas": {
-            "peso_base": 0.30,
-            "modificadores": [
-              { "criterio": "tosse", "valor": true, "peso_extra": 0.25 }
-            ]
-          },
-          "referencia": "AAFP Pharyngitis",
-          "alerta_medico": "Sintomas virais concomitantes (tosse/coriza) afastam bactéria."
+          "nome": "Faringotonsilite Viral",
+          "sinais_positivos_chave": ["dor_de_garganta", "tenho tosse e coriza também"],
+          "regras_logicas": { "peso_base": 0.40, "modificadores": [] },
+          "condutas_sugeridas": ["Sintomáticos.", "Não usar antibiótico."],
+          "referencia": "Centor Modificado"
         },
         {
           "nome": "Amigdalite Bacteriana",
-          "sinais_positivos_chave": ["dor_de_garganta", "febre", "exsudato_tonsilar", "adenopatia_anterior_dolorosa"],
-          "regras_logicas": {
-            "peso_base": 0.15,
-            "modificadores": [
-              { "criterio": "exsudato_tonsilar", "valor": true, "peso_extra": 0.25 },
-              { "criterio": "ausencia_tosse", "valor": true, "peso_extra": 0.15 }
-            ]
-          },
-          "referencia": "Centor Criteria",
-          "alerta_medico": "Avaliar Critérios de Centor."
-        },
-        {
-          "nome": "Refluxo Laringofaríngeo (LPR)",
-          "sinais_positivos_chave": ["pigarro", "sensacao_bola_garganta", "rouquidao", "tosse_seca", "azia"],
-          "regras_logicas": {
-            "peso_base": 0.15,
-            "modificadores": [
-              { "criterio": "sensacao_bola_garganta", "valor": true, "peso_extra": 0.25 },
-              { "criterio": "duracao_dias", "valor": ">30", "peso_extra": 0.15 }
-            ]
-          },
-          "referencia": "AAO-HNS LPR",
-          "alerta_medico": "Sintomas crônicos? Avaliar laringoscopia."
+          "sinais_positivos_chave": ["dor_de_garganta", "não tenho tosse, mas tenho febre alta", "febre"],
+          "regras_logicas": { "peso_base": 0.20, "modificadores": [] },
+          "condutas_sugeridas": ["Teste Rápido Strepto.", "Antibiótico se confirmado."],
+          "referencia": "Centor Criteria"
         },
         {
           "nome": "Abscesso Periamigdaliano",
-          "sinais_positivos_chave": ["dor_de_garganta", "trismo", "voz_batata_quente", "odinofagia_unilateral", "desvio_uvula"],
-          "regras_logicas": {
-            "peso_base": 0.05,
-            "modificadores": [
-              { "criterio": "trismo", "valor": true, "peso_extra": 0.45 },
-              { "criterio": "voz_batata_quente", "valor": true, "peso_extra": 0.30 }
-            ]
-          },
-          "referencia": "CURRENT Oto-HNS 3e",
-          "alerta_medico": "URGÊNCIA: Risco de via aérea. Necessita drenagem?"
+          "sinais_positivos_chave": ["dificuldade de abrir a boca (trismo) ou voz de 'batata quente'"],
+          "regras_logicas": { "peso_base": 0.10, "modificadores": [{ "criterio": "trismo", "valor": true, "peso_extra": 0.60 }] },
+          "condutas_sugeridas": ["URGÊNCIA: Drenagem.", "Antibiótico venoso."],
+          "referencia": "Deep Research"
+        }
+      ]
+    },
+    "nariz": {
+      "nome_exibicao": "Nariz",
+      "sintomas_gatilho": ["nariz_entupido", "coriza", "dor_face", "espirros"],
+      "patologias": [
+        {
+          "nome": "Rinossinusite Bacteriana",
+          "sinais_positivos_chave": ["dor_face", "tinha melhorado, mas piorou de novo (piora dupla)", "febre"],
+          "regras_logicas": { "peso_base": 0.15, "modificadores": [] },
+          "condutas_sugeridas": ["Critério 'Double Sickening'.", "Antibiótico?"],
+          "referencia": "EPOS 2020"
         },
         {
-          "nome": "Mononucleose Infecciosa",
-          "sinais_positivos_chave": ["dor_de_garganta", "fadiga_intensa", "adenopatia_cervical_diffusa", "febre"],
-          "regras_logicas": {
-            "peso_base": 0.05,
-            "modificadores": [
-              { "criterio": "idade", "valor": ">15", "peso_extra": 0.10 },
-              { "criterio": "duracao_dias", "valor": ">7", "peso_extra": 0.15 }
-            ]
-          },
-          "referencia": "CDC EBV Guidelines",
-          "alerta_medico": "Fadiga intensa e linfonodos posteriores? Solicitar sorologia."
+          "nome": "Rinite Alérgica",
+          "sinais_positivos_chave": ["espirros", "coriza", "é crônico (meses/anos) e tenho alergia"],
+          "regras_logicas": { "peso_base": 0.30, "modificadores": [] },
+          "condutas_sugeridas": ["Controle ambiental.", "Spray nasal."],
+          "sugestao_questionario": "NOSE Score",
+          "referencia": "ARIA"
         }
       ]
     },
     "pescoco": {
       "nome_exibicao": "Pescoço",
-      "sintomas_gatilho": [
-        "caroco_no_pescoco", "dor_no_pescoco", "inchaço_ganglios",
-        "edema_submandibular_lenhoso", "dor_inchaco_submandibular_pos_prandial"
-      ],
-      "patologias": [
-        {
-          "nome": "Adenite Reacional (Viral/Bacteriana)",
-          "sinais_positivos_chave": ["inchaço_ganglios", "dor_no_pescoco", "IVAS_recente", "febre"],
-          "regras_logicas": {
-            "peso_base": 0.40,
-            "modificadores": [
-              { "criterio": "idade", "valor": "<18", "peso_extra": 0.20 },
-              { "criterio": "movel_doloroso", "valor": true, "peso_extra": 0.10 }
-            ]
-          },
-          "referencia": "AAFP Neck Masses",
-          "alerta_medico": "Linfonodo doloroso, móvel e agudo sugere etiologia infecciosa."
-        },
-        {
-          "nome": "Sialoadenite / Sialolitíase",
-          "sinais_positivos_chave": ["dor_inchaco_submandibular_pos_prandial", "edema_submandibular", "boca_seca"],
-          "regras_logicas": {
-            "peso_base": 0.15,
-            "modificadores": [
-              { "criterio": "dor_pos_prandial", "valor": true, "peso_extra": 0.50 }
-            ]
-          },
-          "referencia": "CURRENT Oto-HNS 3e ch.18",
-          "alerta_medico": "Palpar glândula e observar saída de saliva/pus."
-        },
-        {
-          "nome": "Angina de Ludwig",
-          "sinais_positivos_chave": ["edema_submandibular_lenhoso", "elevacao_assoalho_bucal", "trismo", "febre", "dor_de_dente_recente"],
-          "regras_logicas": {
-            "peso_base": 0.05,
-            "modificadores": [
-              { "criterio": "edema_lenhoso", "valor": true, "peso_extra": 0.60 }
-            ]
-          },
-          "referencia": "Emergency Medicine Guidelines",
-          "alerta_medico": "EMERGÊNCIA: Risco de obstrução respiratória. Encaminhar PS."
-        },
-        {
-          "nome": "Cisto Tireoglosso / Branquial (Infectado)",
-          "sinais_positivos_chave": ["caroco_no_pescoco", "massa_cervical_mediana", "massa_cervical_lateral", "dor_no_pescoco"],
-          "regras_logicas": {
-            "peso_base": 0.10,
-            "modificadores": [
-              { "criterio": "massa_linha_media", "valor": true, "peso_extra": 0.30 },
-              { "criterio": "idade", "valor": "<20", "peso_extra": 0.15 }
-            ]
-          },
-          "referencia": "Pediatric Otolaryngology",
-          "alerta_medico": "Massa cística congênita que infectou? Avaliar USG."
-        },
-        {
-          "nome": "Nódulo Tireoidiano / Bócio",
-          "sinais_positivos_chave": ["caroco_no_pescoco", "massa_cervical_anterior", "disfagia", "sem_dor"],
-          "regras_logicas": {
-            "peso_base": 0.10,
-            "modificadores": [
-              { "criterio": "ausencia_dor", "valor": true, "peso_extra": 0.15 },
-              { "criterio": "sexo", "valor": "Feminino", "peso_extra": 0.10 }
-            ]
-          },
-          "referencia": "ATA Guidelines",
-          "alerta_medico": "Nódulo move-se com a deglutição? Solicitar TSH/USG."
-        }
-      ]
+      "sintomas_gatilho": ["caroco", "dor_pescoco"],
+      "patologias": []
     }
   }
 }

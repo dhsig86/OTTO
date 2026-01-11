@@ -33,9 +33,12 @@ app.add_middleware(
 class DadosPaciente(BaseModel):
     idade: int
     sexo: str
-    sintomas_gerais: List[str]
-    regioes: List[str]
-    sintomas_especificos: List[str]
+    sintomas_gerais: List[str] = []          # Valor padrão: Lista vazia
+    detalhes_febre: Optional[str] = None     # Valor padrão: None
+    regioes: List[str] = []
+    sinais_alarme: List[str] = []            # Importante ter padrão
+    sintomas_especificos: List[str] = []
+    respostas_investigativas: List[str] = [] # Importante ter padrão
 
 # --- CARREGAR O HEART ---
 def carregar_conhecimento():

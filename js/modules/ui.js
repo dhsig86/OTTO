@@ -67,7 +67,9 @@ export const UI = {
 
     // --- NOVA FUNÇÃO: RELATÓRIO DUAL VIEW ---
     renderFinalReport(dados, hipoteses) {
-        // 1. Gera Conteúdo da Via do Paciente (Simples e Acolhedora)
+    // LINHA DE SEGURANÇA :
+       if (!hipoteses) hipoteses = [];
+        // 1. Gera Conteúdo da Via do Paciente 
         const htmlPaciente = `
             <div class="p-6 bg-white">
                 <div class="mb-6 text-center">

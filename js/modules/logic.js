@@ -397,16 +397,39 @@ export const Logic = {
         
         UI.showLoading();
         
-        // Pega os dados finais do State
-        const dadosCompletos = State.get();
+        // Pega os dados brutos do State
+        const d = State.get();
         
-        // Manda pro cérebro (API)
-        const resultado = await API.processarTriagem(dadosCompletos);
-        
-        UI.hideLoading();
-        
-        // Chama a nova UI de Abas (Dual View)
-        UI.renderFinalReport(dadosCompletos, resultado.hipoteses);
+        // TRADUÇÃO: Mapeia do JS (CamelCase) para Python (snake_case)
+        const payload = {
+            idade: parseInt(d.demografia.idade) || 0, // Proteção contra NaN
+            sexo: d.demografia.sexo || "Indefinido",
+            sintomas_gerais: d.sintomasGerais || [],
+            detalhes_febre: d.detalhesFebre || null,
+            regioes: d.regioesAfetadas || [],
+            sinais_alarme: d.sinaisAlarme || [],          // Python espera snake_case
+            sintomas_especificos: d.detalhesSintomas || [],
+            respostas_investigativas: d.respostasInvestigativas || [] // Python espera snake_case
+        };
+
+        try {
+            // Manda pro cérebro (API)
+            const resultado = await API.processarTriagem(payload);
+            
+            UI.hideLoading();
+            
+            // Verifica se voltou algo válido
+            const hipoteses = resultado && resultado.hipoteses ? resultado.hipoteses : [];
+            
+            // Chama a nova UI de Abas (Dual View)
+            UI.renderFinalReport(d, hipoteses);
+            
+        } catch (error) {
+            console.error("Erro fatal no fluxo:", error);
+            UI.hideLoading();
+            UI.addOttoBubble("Houve um erro de comunicação. Gerando relatório offline.");
+            UI.renderFinalReport(d, []); // Gera relatório vazio mas não trava
+        }
     },
 
     // --- Helpers de Navegação ---

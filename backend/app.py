@@ -1,120 +1,131 @@
-# Versao do Backend: 0.3.1 (Fix Python Version)
 import json
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
-app = FastAPI(
-    title="OTTO API - Versão Segura CORS",  # Mudei o título
-    version="0.5.0-FIX",                    # Mudei a versão
-    description="Backend com CORS liberado para dhsig86.github.io"
-)
-# --- CONFIGURAÇÃO DE SEGURANÇA (CORS) ---
-# Lista de sites permitidos (VIP List)
-origins = [
-    "http://localhost",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    "https://dhsig86.github.io",  # <--- SEU SITE AQUI
-    "*"  # Tenta liberar geral também
-]
+app = FastAPI(title="OTTO CDSS - Brain 3.0", version="3.0.0")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins, # Usa a lista acima
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Configuração CORS (Permite acesso do Frontend)
+origins = ["http://localhost", "http://127.0.0.1:8000", "https://dhsig86.github.io", "*"]
+app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-# --- MODELOS DE DADOS (O que o paciente envia) ---
+# Modelo de Dados Robusto (Espelha o que o Frontend envia)
 class DadosPaciente(BaseModel):
-    idade: int
-    sexo: str
-    sintomas_gerais: List[str] = []          # Valor padrão: Lista vazia
-    detalhes_febre: Optional[str] = None     # Valor padrão: None
+    idade: int = 0
+    sexo: str = "Indefinido"
+    sintomas_gerais: List[str] = []
     regioes: List[str] = []
-    sinais_alarme: List[str] = []            # Importante ter padrão
-    sintomas_especificos: List[str] = []
-    respostas_investigativas: List[str] = [] # Importante ter padrão
+    # Novos campos estruturados
+    sintomas_especificos: List[str] = [] # Lista simples para busca rápida
+    respostas_qualificadores: Dict[str, Any] = {} # Ex: {"dor_ouvido": {"intensidade": 8, "tipo": "pulsatil"}}
+    respostas_discriminantes: List[str] = [] # IDs dos fatores marcados (ex: ["agua", "trauma"])
+    sinais_alarme: List[str] = []
+    historico: str = ""
 
-# --- CARREGAR O HEART ---
+HEART = {}
+
 def carregar_conhecimento():
-    path = os.path.join(os.path.dirname(__file__), "data", "patologias.json")
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    global HEART
+    try:
+        path = os.path.join(os.path.dirname(__file__), "data", "patologias.json")
+        with open(path, "r", encoding="utf-8") as f:
+            HEART = json.load(f)
+            print("HEART 3.0 carregado com sucesso.")
+    except Exception as e:
+        print(f"Erro ao carregar JSON: {e}")
 
-HEART = carregar_conhecimento()
+carregar_conhecimento()
 
-# --- ALGORITMO DE DIAGNÓSTICO (A Lógica Médica) ---
-def calcular_hipoteses(dados: DadosPaciente):
-    hipoteses = []
-    
-    # 1. Varre apenas as regiões que o paciente marcou (ex: Ouvido)
-    for regiao in dados.regioes:
-        dominio = HEART["dominios"].get(regiao)
-        if not dominio: continue
-        
-        # 2. Testa cada doença dessa região
-        for doenca in dominio.get("patologias", []):
-            score = doenca["regras_logicas"]["peso_base"]
-            match_sintomas = []
-            
-            # A. Pontua por sintomas positivos (Gatilhos)
-            for sintoma in dados.sintomas_especificos:
-                # Normaliza strings (remove _ e minúsculas para comparar)
-                s_clean = sintoma.lower().replace(" ", "_")
-                
-                # Se o sintoma está na lista chave da doença
-                if any(chave in s_clean for chave in doenca["sinais_positivos_chave"]):
-                    score += 0.15 # Peso fixo por sintoma chave
-                    match_sintomas.append(sintoma)
-            
-            # B. Aplica Modificadores (Idade, Febre, etc)
-            for mod in doenca["regras_logicas"].get("modificadores", []):
-                # Regra de Idade
-                if mod["criterio"] == "idade":
-                    operador = mod["valor"][0] # < ou >
-                    valor_corte = int(mod["valor"][1:])
-                    if operador == "<" and dados.idade < valor_corte:
-                        score += mod["peso_extra"]
-                    elif operador == ">" and dados.idade > valor_corte:
-                        score += mod["peso_extra"]
-                
-                # Regra de Febre Alta
-                if mod["criterio"] == "febre_alta" and "febre" in dados.sintomas_gerais:
-                    # Aqui simplificamos: se marcou "febre", assume risco
-                    score += mod["peso_extra"]
-
-            # C. Guarda se tiver pontuação relevante
-            if score > 0.3:
-                hipoteses.append({
-                    "doenca": doenca["nome"],
-                    "probabilidade": min(round(score * 100), 99), # Transforma 0.45 em 45%
-                    "baseado_em": match_sintomas,
-                    "alerta": doenca.get("alerta_medico")
-                })
-    
-    # Ordena do mais provável para o menos provável
-    hipoteses.sort(key=lambda x: x["probabilidade"], reverse=True)
-    return hipoteses
-
-# --- ROTAS ---
 @app.get("/api/heart/knowledge")
-def get_knowledge():
-    return HEART
+def get_knowledge(): return HEART
 
 @app.post("/api/brain/process")
-def processar_triagem(dados: DadosPaciente):
-    """Recebe os dados da entrevista e devolve o raciocínio clínico"""
-    print(f"Recebido: {dados}")
+def processar_triagem_clinica(dados: DadosPaciente):
+    hipoteses = []
     
-    resultados = calcular_hipoteses(dados)
+    # Normalização para busca (lowercase)
+    sintomas_paciente = set([s.lower() for s in dados.sintomas_especificos])
+    discriminantes_paciente = set([d.lower() for d in dados.respostas_discriminantes])
+    
+    # Loop por região afetada
+    for regiao in dados.regioes:
+        dominio = HEART.get("dominios", {}).get(regiao)
+        if not dominio: continue
+        
+        for doenca in dominio.get("patologias", []):
+            score_base = 0
+            evidencias = []
+            
+            # 1. Análise de Sintomas Chave (Matching)
+            matches = 0
+            for sinal in doenca.get("sinais_chave", []):
+                # Lógica para qualificador específico (ex: "coriza:Transparente")
+                if ":" in sinal:
+                    chave, valor_esperado = sinal.split(":")
+                    # Verifica se o paciente tem essa chave nos qualificadores e se o valor bate
+                    resposta_user = dados.respostas_qualificadores.get(chave, {})
+                    # Procura em todos os atributos
+                    encontrou = False
+                    for k, v in resposta_user.items():
+                         if str(v).lower() == valor_esperado.lower():
+                             encontrou = True
+                             break
+                    if encontrou:
+                        matches += 1.5 # Peso maior para sintoma qualificado exato
+                        evidencias.append(f"{chave} ({valor_esperado})")
+                
+                # Sintoma simples
+                elif sinal.lower() in sintomas_paciente:
+                    matches += 1.0
+                    evidencias.append(sinal)
+
+            if matches == 0: continue # Se não tem nenhum sintoma da doença, pula
+            
+            # Cálculo inicial: % de sintomas preenchidos
+            total_sinais = len(doenca["sinais_chave"])
+            score = (matches / total_sinais) * 50 # Base até 50 pontos
+            
+            # 2. Aplicação dos Fatores Discriminantes (Multiplicadores)
+            fatores_peso = doenca.get("fatores_peso", {})
+            for fator_id, peso in fatores_peso.items():
+                if fator_id.lower() in discriminantes_paciente:
+                    score *= peso # Multiplica o score (Pivô)
+                    evidencias.append(f"Fator: {fator_id}")
+            
+            # 3. Negativos Pertinentes (Bônus por ausência)
+            negativos = doenca.get("negativos_pertinentes", [])
+            for neg in negativos:
+                # Ex: "sem_febre_alta". Verifica se paciente NÃO marcou febre.
+                sintoma_negado = neg.replace("sem_", "")
+                if sintoma_negado not in sintomas_paciente and "febre" not in str(dados.sintomas_gerais):
+                    score += 5
+            
+            # 4. Red Flags (Score Máximo Imediato)
+            if doenca.get("tipo") == "RedFlag" or doenca.get("tipo") == "Urgencia":
+                # Se tiver match forte em redflag, sobe prioridade
+                if matches >= 1: score += 30
+
+            # Trava de segurança (0 a 99%)
+            probabilidade = min(round(score), 99)
+            
+            if probabilidade > 20: # Corte mínimo
+                hipoteses.append({
+                    "doenca": doenca["nome"],
+                    "tipo": doenca.get("tipo", "Geral"),
+                    "probabilidade": probabilidade,
+                    "baseado_em": evidencias,
+                    "condutas": doenca.get("condutas", []),
+                    "questionario": doenca.get("questionario", None),
+                    "referencia": doenca.get("referencia", "")
+                })
+
+    # Ordena por probabilidade decrescente
+    hipoteses.sort(key=lambda x: x["probabilidade"], reverse=True)
     
     return {
-        "status": "sucesso",
-        "hipoteses": resultados,
-        "resumo_clinico": f"Paciente {dados.idade}a, {dados.sexo}. Queixa em {', '.join(dados.regioes)}."
+        "status": "sucesso_cdss",
+        "paciente": dados.idade,
+        "hipoteses": hipoteses
     }

@@ -1,356 +1,317 @@
-// MÓDULO DE LÓGICA (CONTROLADOR) v2
-// Fix: Case Sensitivity no Drill Down e Logs de Debug
+// MÓDULO DE LÓGICA (INTERVIEWER) v3.0
+// Responsável por conduzir a entrevista baseada no Super JSON
 
 import { State } from './state.js';
 import { API } from './api.js';
 import { UI } from './ui.js';
 
-let Heart = null; 
+let Heart = null; // Cache dos protocolos
 
 export const Logic = {
+    // 1. Inicialização
     async init() {
-        console.log("OTTO Logic Init...");
+        console.log("OTTO Interviewer Init...");
         UI.showLoading();
+        
+        // Carrega o "Super JSON"
         Heart = await API.getProtocolos();
+        
         UI.hideIntro();
         UI.hideLoading();
 
-        if (!Heart) UI.addOttoBubble("⚠️ Modo Offline (Cache).");
+        if (!Heart) {
+            UI.addOttoBubble("⚠️ Modo Offline (Cache). Protocolos desatualizados.");
+        }
+        
+        // Começa a entrevista
         this.nextStep();
     },
 
+    // 2. O Roteador (Máquina de Estados)
     nextStep() {
         const currentStep = State.getEtapa();
         const nextStep = currentStep + 1;
         State.setEtapa(nextStep);
 
-        console.log(`Navegando para etapa: ${nextStep}`);
+        console.log(`>> Navegando para etapa: ${nextStep}`);
 
         switch (nextStep) {
             case 1: this.flowConsent(); break;
             case 2: this.flowDemographics(); break;
-            case 3: this.flowQP(); break;
-            case 4: this.flowGeneral(); break;
-            case 5: this.flowDrillDownFever(); break;
-            case 6: this.flowRegions(); break;
-            case 7: this.flowSymptoms(); break;
-            case 8: this.flowInvestigate(); break; // O PULO DO GATO ESTÁ AQUI
-            case 9: this.flowTime(); break;
-            case 10: this.flowRedFlags(); break;
-            case 11: this.flowAnythingElse(); break;
-            case 12: this.finishTriage(); break;
-            default: console.warn("Fim do fluxo");
+            case 3: this.flowQP(); break;      // Queixa Principal
+            case 4: this.flowGeneral(); break; // Sintomas Sistêmicos
+            case 5: this.flowRegions(); break; // Escolha da Região (Ouvido, Nariz...)
+            case 6: this.flowSymptoms(); break;// Sintomas iniciais (Gatilhos)
+            
+            // --- AS NOVAS ETAPAS DE INTELIGÊNCIA ---
+            case 7: this.flowQualifiers(); break;     // Drill Down (Detalhes profundos)
+            case 8: this.flowDiscriminators(); break; // Pivôs (Sim/Não decisivos)
+            case 9: this.flowRedFlags(); break;       // Sinais de Alarme
+            
+            case 10: this.flowAnythingElse(); break;
+            case 11: this.finishTriage(); break;
+            default: console.warn("Fim do fluxo ou etapa inválida");
         }
     },
 
+    // 3. Função de Voltar (Undo)
     goBack() {
-        if (State.undo()) {
-            const step = State.get().etapa;
+        const success = State.undo();
+        if (success) {
+            // Recua o contador para re-executar a etapa anterior
+            const step = State.getEtapa(); // O undo já atualizou o state interno
+            // Hack visual: Voltamos 1 no contador para o nextStep avançar para o correto
             State.setEtapa(step - 1); 
             this.nextStep();
         } else {
-            alert("Início da triagem.");
+            alert("Início da triagem. Não é possível voltar.");
         }
     },
 
-    // --- FLUXOS ---
+    // --- FLUXOS DA ENTREVISTA ---
 
     flowConsent() {
-        UI.addOttoBubble("Olá! Sou o assistente do Dr. Dario. Para começar, preciso do seu nome e consentimento.");
-        UI.renderInput(`
-            <div class="flex flex-col gap-3 bg-white p-1">
-                <input type="text" id="inp-name" class="w-full p-3 border border-slate-300 rounded-xl outline-none focus:border-blue-500" placeholder="Nome Completo">
-                <label class="flex items-center gap-2 p-2 bg-slate-50 rounded border cursor-pointer hover:bg-slate-50">
-                    <input type="checkbox" id="chk-consent" class="w-5 h-5 text-blue-600"> 
-                    <span class="text-xs text-slate-600">Concordo com o processamento de dados.</span>
-                </label>
-                <button id="btn-next" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-md">Confirmar</button>
-            </div>
-        `);
+        UI.addOttoBubble("Olá! Sou o assistente inteligente do Dr. Dario. Vou organizar seu atendimento.");
+        UI.renderInput(UI.templates.consent());
         
-        document.getElementById('btn-next').onclick = () => {
-            const name = document.getElementById('inp-name').value.trim();
-            const check = document.getElementById('chk-consent').checked;
-            if(name.length < 3 || !check) return alert("Preencha nome e aceite.");
-            State.update('nome', name);
-            State.update('consentimento', true);
-            UI.addUserBubble(`Sou ${name}, aceito.`);
+        UI.bind('btn-next', () => {
+            const nome = document.getElementById('inp-name').value;
+            if(nome.length < 3) return alert("Por favor, digite seu nome.");
+            State.update('nome', nome);
+            UI.addUserBubble(nome);
             this.nextStep();
-        };
+        });
     },
 
     flowDemographics() {
-        const nome = State.get().nome.split(" ")[0];
-        UI.addOttoBubble(`Prazer, ${nome}. Qual sua idade e sexo?`);
-        UI.renderInput(`
-            <div class="flex gap-2">
-                <input type="number" id="inp-age" class="flex-1 p-3 border border-slate-300 rounded-xl outline-none text-lg" placeholder="Idade">
-                <select id="inp-sex" class="flex-1 p-3 border border-slate-300 rounded-xl outline-none text-lg bg-white">
-                    <option value="" disabled selected>Sexo</option>
-                    <option value="Masculino">Masculino</option>
-                    <option value="Feminino">Feminino</option>
-                </select>
-                <button id="btn-next" class="bg-blue-600 text-white px-5 rounded-xl font-bold">➔</button>
-            </div>
-            ${this.getBackButtonHtml()} 
-        `);
-        document.getElementById('btn-next').onclick = () => {
-            const age = document.getElementById('inp-age').value;
-            const sex = document.getElementById('inp-sex').value;
-            if(!age || !sex) return alert("Preencha tudo.");
-            State.update('demografia', { idade: age, sexo: sex });
-            UI.addUserBubble(`${age} anos, ${sex}`);
+        UI.addOttoBubble("Para começar, confirme seus dados:");
+        UI.renderInput(UI.templates.demographics());
+        
+        UI.bind('btn-next', () => {
+            const idade = document.getElementById('inp-age').value;
+            const sexo = document.getElementById('inp-sex').value;
+            const visita = document.getElementById('inp-visit').value;
+            
+            if(!idade || !sexo) return alert("Idade e sexo são obrigatórios.");
+            
+            State.update('demografia', { idade, sexo, tipo_visita: visita });
             this.nextStep();
-        };
-        this.bindBackButton();
+        });
+        this.bindBack();
     },
 
     flowQP() {
-        UI.addOttoBubble("Em poucas palavras, o que você sente?");
-        UI.renderInput(`
-            <div class="flex gap-2">
-                <input id="inp-qp" type="text" class="flex-1 p-3 border border-slate-300 rounded-xl outline-none" placeholder="Ex: Tontura forte...">
-                <button id="btn-next" class="bg-blue-600 text-white px-5 rounded-xl font-bold">OK</button>
-            </div>
-            ${this.getBackButtonHtml()}
-        `);
-        document.getElementById('btn-next').onclick = () => {
-            const txt = document.getElementById('inp-qp').value;
-            if(!txt) return;
+        UI.addOttoBubble("Em poucas palavras, qual o motivo da sua visita hoje?");
+        UI.renderInput(UI.templates.textInput("Ex: Dor de ouvido forte desde ontem...", false));
+        
+        UI.bind('btn-next', () => {
+            const txt = document.getElementById('inp-text').value;
+            if(!txt) return; // Opcional: Validar vazio
             State.update('qp_real', txt);
             UI.addUserBubble(txt);
             this.nextStep();
-        };
-        this.bindBackButton();
+        });
+        this.bindBack();
     },
 
     flowGeneral() {
-        UI.addOttoBubble("Sente algo no corpo todo?");
-        const opts = Heart?.anamnese_geral?.sintomas_sistemicos || [];
-        let html = '<div class="flex flex-wrap gap-2 justify-center mb-2">';
-        opts.forEach(s => html += `<button class="btn-toggle px-4 py-2 border rounded-full text-sm text-slate-600 bg-white" data-val="${s}">${UI.formatText(s)}</button>`);
-        html += '</div><button id="btn-next" class="w-full bg-slate-800 text-white py-3 rounded-xl font-bold">Continuar</button>' + this.getBackButtonHtml();
-        UI.renderInput(html);
-
-        const selected = new Set();
-        document.querySelectorAll('.btn-toggle').forEach(btn => {
-            btn.onclick = () => {
-                const val = btn.dataset.val;
-                if(selected.has(val)) { selected.delete(val); btn.className = "btn-toggle px-4 py-2 border rounded-full text-sm text-slate-600 bg-white"; } 
-                else { selected.add(val); btn.className = "btn-toggle px-4 py-2 bg-red-50 border-red-200 text-red-600 border rounded-full text-sm font-bold"; }
-            };
-        });
-        document.getElementById('btn-next').onclick = () => {
-            State.update('sintomasGerais', Array.from(selected));
-            this.nextStep();
-        };
-        this.bindBackButton();
-    },
-
-    flowDrillDownFever() {
-        const gerais = State.get().sintomasGerais;
-        if (!gerais.includes('febre')) { this.nextStep(); return; }
-
-        UI.addOttoBubble("Você mediu a febre?");
-        const opcoes = ["Não medi", "Baixa (< 38°C)", "Alta (> 38°C)", "Muito Alta (> 39.5°C)"];
-        let html = '<div class="flex flex-wrap gap-2 justify-center">';
-        opcoes.forEach(op => html += `<button class="btn-opt px-4 py-3 bg-white border border-red-100 text-red-700 rounded-xl font-medium" data-val="${op}">${op}</button>`);
-        html += '</div>' + this.getBackButtonHtml();
-        UI.renderInput(html);
-
-        document.querySelectorAll('.btn-opt').forEach(btn => {
-            btn.onclick = () => {
-                State.update('detalhesFebre', btn.dataset.val);
-                UI.addUserBubble(btn.dataset.val);
-                this.nextStep();
-            };
-        });
-        this.bindBackButton();
+        UI.addOttoBubble("Você apresenta algum sintoma geral no corpo?");
+        // Pega do JSON ou usa padrão
+        const options = Heart?.anamnese_geral?.sintomas_sistemicos || ["febre", "perda_peso"];
+        UI.renderInput(UI.templates.multiSelect(options));
+        
+        UI.bindSelectButtons((selected) => State.update('sintomasGerais', selected));
+        UI.bind('btn-next', () => this.nextStep());
+        this.bindBack();
     },
 
     flowRegions() {
-        UI.addOttoBubble("Onde está o problema?");
-        const domains = Object.keys(Heart.dominios);
-        let html = '<div class="grid grid-cols-2 gap-2 mb-2">';
-        domains.forEach(d => {
-            const info = Heart.dominios[d];
-            html += `<button class="btn-reg h-24 bg-white border border-slate-200 rounded-xl flex flex-col items-center justify-center gap-1 shadow-sm active:scale-95" data-val="${d}"><span class="text-3xl">${UI.getEmoji(d)}</span><span class="text-xs font-bold uppercase text-slate-600">${info.nome_exibicao}</span></button>`;
-        });
-        html += '</div><button id="btn-next" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">Avançar</button>' + this.getBackButtonHtml();
-        UI.renderInput(html);
-
-        const selected = new Set();
-        document.querySelectorAll('.btn-reg').forEach(btn => {
-            btn.onclick = () => {
-                const val = btn.dataset.val;
-                if(selected.has(val)) { selected.delete(val); btn.classList.remove('bg-blue-50', 'border-blue-500', 'ring-2', 'ring-blue-200'); } 
-                else { selected.add(val); btn.classList.add('bg-blue-50', 'border-blue-500', 'ring-2', 'ring-blue-200'); }
-            };
-        });
-        document.getElementById('btn-next').onclick = () => {
-            if(selected.size === 0) return alert("Selecione uma região.");
-            State.update('regioesAfetadas', Array.from(selected));
-            UI.addUserBubble(Array.from(selected).map(UI.formatText).join(", "));
+        UI.addOttoBubble("Toque na região onde está o problema principal:");
+        UI.renderInput(UI.templates.regions(Heart.dominios));
+        
+        UI.bindRegionButtons((selected) => {
+            if(selected.length === 0) return alert("Selecione pelo menos uma região.");
+            State.update('regioesAfetadas', selected);
             this.nextStep();
-        };
-        this.bindBackButton();
+        });
+        this.bindBack();
     },
 
     flowSymptoms() {
-        let list = [];
-        const regs = State.get().regioesAfetadas;
-        regs.forEach(r => list = list.concat(Heart.dominios[r].sintomas_gatilho || []));
-        const unique = [...new Set(list)];
-
-        UI.addOttoBubble("Selecione os detalhes:");
-        let html = '<div class="flex flex-wrap gap-2 justify-center mb-2">';
-        unique.forEach(s => html += `<button class="btn-sym px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700" data-val="${s}">${UI.formatText(s)}</button>`);
-        html += '</div><button id="btn-next" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg">Próximo</button>' + this.getBackButtonHtml();
-        UI.renderInput(html);
-
-        const selected = new Set();
-        document.querySelectorAll('.btn-sym').forEach(btn => {
-            btn.onclick = () => {
-                const val = btn.dataset.val;
-                if(selected.has(val)) { selected.delete(val); btn.className = "btn-sym px-3 py-2 bg-slate-50 border rounded-lg text-sm text-slate-700"; } 
-                else { selected.add(val); btn.className = "btn-sym px-3 py-2 bg-blue-100 border-blue-300 text-blue-900 border rounded-lg text-sm font-bold shadow-sm"; }
-            };
+        // Agrega sintomas de todas as regiões selecionadas
+        let options = [];
+        State.get().regioesAfetadas.forEach(r => {
+            if(Heart.dominios[r]) options = options.concat(Heart.dominios[r].sintomas_gatilho);
         });
-        document.getElementById('btn-next').onclick = () => {
-            State.update('detalhesSintomas', Array.from(selected));
-            this.nextStep();
-        };
-        this.bindBackButton();
-    },
+        options = [...new Set(options)]; // Remove duplicatas
 
-    // --- CORREÇÃO CRÍTICA AQUI ---
-    flowInvestigate() {
-        const sintomasRaw = State.get().detalhesSintomas;
-        // Normaliza para minúsculo para garantir o match
-        const sintomas = sintomasRaw.map(s => s.toLowerCase());
-        const investigacoes = Heart.fluxos_investigativos || {};
+        UI.addOttoBubble("Selecione o que você sente:");
+        UI.renderInput(UI.templates.multiSelect(options));
         
-        console.log("Investigando sintomas:", sintomas); // Debug
-
-        let foundKey = null;
-        if (sintomas.includes('tontura')) foundKey = 'tontura';
-        else if (sintomas.includes('dor_de_garganta')) foundKey = 'dor_de_garganta';
-        else if (sintomas.includes('nariz_entupido')) foundKey = 'nariz_entupido';
-        else if (sintomas.includes('zumbido')) foundKey = 'zumbido';
-
-        if (foundKey && investigacoes[foundKey]) {
-            console.log("Gatilho acionado:", foundKey); // Debug
-            const data = investigacoes[foundKey];
-            UI.addOttoBubble("🕵️ " + data.pergunta);
-            
-            let html = '<div class="flex flex-col gap-2">';
-            data.opcoes.forEach(op => html += `<button class="btn-inv p-3 bg-white border border-slate-300 rounded-xl text-left text-sm text-slate-700 font-medium hover:bg-blue-50 transition" data-val="${op}">${op}</button>`);
-            html += '</div>' + this.getBackButtonHtml();
-            UI.renderInput(html);
-
-            document.querySelectorAll('.btn-inv').forEach(btn => {
-                btn.onclick = () => {
-                    State.addToList('respostasInvestigativas', btn.dataset.val);
-                    UI.addUserBubble(btn.dataset.val);
-                    this.nextStep();
-                };
-            });
-            this.bindBackButton();
-        } else {
-            console.log("Nenhum gatilho investigativo encontrado.");
-            this.nextStep(); 
-        }
+        UI.bindSelectButtons((selected) => State.update('detalhesSintomas', selected));
+        UI.bind('btn-next', () => this.nextStep());
+        this.bindBack();
     },
 
-    flowTime() {
-        UI.addOttoBubble("Há quanto tempo?");
-        UI.renderInput(`<div class="flex gap-2"><input id="inp-time" type="text" class="flex-1 p-3 border rounded-xl" placeholder="Ex: 2 dias..."><button id="btn-next" class="bg-blue-600 text-white px-4 rounded-xl font-bold">OK</button></div>` + this.getBackButtonHtml());
-        document.getElementById('btn-next').onclick = () => {
-            const val = document.getElementById('inp-time').value;
-            if(!val) return;
-            State.update('tempoEvolucao', val);
-            UI.addUserBubble(val);
+    // --- O PULO DO GATO: QUALIFICADORES (Drill Down) ---
+    flowQualifiers() {
+        const sintomasMarcados = State.get().detalhesSintomas;
+        const regioes = State.get().regioesAfetadas;
+        let queue = [];
+
+        // Verifica no JSON: Para cada sintoma marcado, existe uma pergunta detalhada?
+        regioes.forEach(r => {
+            const dominio = Heart.dominios[r];
+            if(!dominio.qualificadores) return;
+            
+            sintomasMarcados.forEach(sintoma => {
+                // Se existe qualificador para este sintoma (Ex: "dor_ouvido")
+                if(dominio.qualificadores[sintoma]) {
+                    queue.push({
+                        sintomaId: sintoma,
+                        config: dominio.qualificadores[sintoma]
+                    });
+                }
+            });
+        });
+
+        // Se não tem nada para detalhar, pula esta etapa
+        if (queue.length === 0) { this.nextStep(); return; }
+
+        UI.addOttoBubble("Preciso de alguns detalhes específicos sobre os sintomas:");
+        // Renderiza o formulário complexo (Sliders, Selects)
+        UI.renderInput(UI.templates.qualifiersForm(queue));
+        
+        UI.bind('btn-next', () => {
+            // Coleta as respostas do HTML
+            queue.forEach(q => {
+                q.config.atributos.forEach(attr => {
+                    const inputId = `qualif-${q.sintomaId}-${attr.id}`;
+                    const el = document.getElementById(inputId);
+                    if(el) {
+                        State.setQualificador(q.sintomaId, attr.id, el.value);
+                    }
+                });
+            });
+            UI.addUserBubble("Detalhes informados.");
             this.nextStep();
-        };
-        this.bindBackButton();
+        });
+        this.bindBack();
+    },
+
+    // --- O PULO DO GATO 2: DISCRIMINADORES (Fatores Pivô) ---
+    flowDiscriminators() {
+        const regioes = State.get().regioesAfetadas;
+        let factors = [];
+        
+        // Coleta todos os fatores discriminantes das regiões selecionadas
+        regioes.forEach(r => {
+            if(Heart.dominios[r].fatores_discriminantes) {
+                factors = factors.concat(Heart.dominios[r].fatores_discriminantes);
+            }
+        });
+
+        if(factors.length === 0) { this.nextStep(); return; }
+
+        UI.addOttoBubble("Para finalizar a análise, responda Sim ou Não:");
+        UI.renderInput(UI.templates.binaryQuestions(factors));
+        
+        // Lógica visual dos botões Sim/Não
+        const answers = new Set();
+        document.querySelectorAll('.btn-binary').forEach(btn => {
+            btn.onclick = () => {
+                const id = btn.dataset.id;
+                if(answers.has(id)) {
+                    answers.delete(id); // Desmarcar
+                    btn.classList.remove('bg-blue-600', 'text-white', 'border-transparent');
+                    btn.classList.add('bg-white', 'text-slate-700', 'border-slate-200');
+                    btn.querySelector('.check-icon').textContent = '';
+                } else {
+                    answers.add(id); // Marcar
+                    btn.classList.remove('bg-white', 'text-slate-700', 'border-slate-200');
+                    btn.classList.add('bg-blue-600', 'text-white', 'border-transparent');
+                    btn.querySelector('.check-icon').textContent = '✓ ';
+                }
+            }
+        });
+
+        UI.bind('btn-next', () => {
+            State.update('respostasDiscriminantes', Array.from(answers));
+            this.nextStep();
+        });
+        this.bindBack();
     },
 
     flowRedFlags() {
         let alarms = [];
-        const regs = State.get().regioesAfetadas;
-        regs.forEach(r => { if(Heart.dominios[r].sinais_alarme) alarms = alarms.concat(Heart.dominios[r].sinais_alarme); });
-
+        State.get().regioesAfetadas.forEach(r => {
+            if(Heart.dominios[r].sinais_alarme) alarms = alarms.concat(Heart.dominios[r].sinais_alarme);
+        });
+        
         if(alarms.length === 0) { this.nextStep(); return; }
 
-        UI.addOttoBubble("⚠️ Você tem algum destes sinais de alerta?");
-        let html = '<div class="flex flex-col gap-2 mb-2">';
-        alarms.forEach(a => html += `<button class="btn-alarm p-3 border border-red-200 bg-red-50 rounded-lg text-red-800 text-left text-sm font-medium flex items-center gap-3" data-val="${a.texto}"><span class="w-5 h-5 border-2 border-red-400 bg-white rounded flex items-center justify-center shrink-0"></span>${a.texto}</button>`);
-        html += '</div><button id="btn-next" class="w-full bg-slate-800 text-white py-3 rounded-xl font-bold">Não / Continuar</button>' + this.getBackButtonHtml();
-        UI.renderInput(html);
-
-        document.querySelectorAll('.btn-alarm').forEach(btn => {
-            btn.onclick = () => {
-                State.addToList('sinaisAlarme', btn.dataset.val);
-                UI.addUserBubble("Sim: " + btn.dataset.val);
-                btn.classList.add('ring-2', 'ring-red-500', 'bg-red-100');
-                btn.querySelector('span').innerHTML = '✓';
-            };
-        });
-        document.getElementById('btn-next').onclick = () => this.nextStep();
-        this.bindBackButton();
+        UI.addOttoBubble("⚠️ Atenção: Algum destes sinais de ALERTA está presente?");
+        UI.renderInput(UI.templates.multiSelect(alarms.map(a => a.id), alarms)); // Passa objetos completos para pegar o texto
+        
+        UI.bindSelectButtons((selected) => State.update('sinaisAlarme', selected), true); // true = estilo vermelho
+        UI.bind('btn-next', () => this.nextStep());
+        this.bindBack();
     },
 
     flowAnythingElse() {
-        UI.addOttoBubble("Algo mais? (Remédios, alergias...)");
-        UI.renderInput(`
-            <div class="flex flex-col gap-2">
-                <textarea id="inp-more" class="w-full p-3 border rounded-xl h-24 text-sm" placeholder="Ex: Alérgico a penicilina..."></textarea>
-                <div class="flex gap-2">
-                    <button id="btn-skip" class="flex-1 py-3 bg-slate-100 text-slate-500 rounded-xl font-bold">Não</button>
-                    <button id="btn-send" class="flex-1 py-3 bg-green-600 text-white rounded-xl font-bold">Finalizar</button>
-                </div>
-            </div>
-            ${this.getBackButtonHtml()}
-        `);
-        document.getElementById('btn-send').onclick = () => {
-            const txt = document.getElementById('inp-more').value;
-            if(txt) { State.update('algoMais', txt); UI.addUserBubble("Obs: "+txt); }
+        UI.addOttoBubble("Algo mais? (Alergias, remédios em uso, observações...)");
+        UI.renderInput(UI.templates.textInput("Ex: Sou alérgico a Dipirona...", true));
+        
+        UI.bind('btn-finish', () => {
+            const txt = document.getElementById('inp-text').value;
+            if(txt) State.update('algoMais', txt);
             this.nextStep();
-        };
-        document.getElementById('btn-skip').onclick = () => { UI.addUserBubble("Não."); this.nextStep(); };
-        this.bindBackButton();
+        });
+        UI.bind('btn-skip', () => {
+            this.nextStep();
+        });
+        this.bindBack();
     },
 
     async finishTriage() {
-        UI.addOttoBubble("Gerando relatório... 📋");
-        UI.renderInput('<div class="text-center text-xs text-slate-400 py-4 uppercase font-bold tracking-widest animate-pulse">Processando</div>');
+        UI.addOttoBubble("Gerando documentação clínica e analisando protocolos... 📋");
         UI.showLoading();
         
         const d = State.get();
-        // Payload Seguro
+        
+        // Constrói o pacote exato que o BRAIN (Python) espera
         const payload = {
             idade: parseInt(d.demografia.idade) || 0,
             sexo: d.demografia.sexo || "Indefinido",
             sintomas_gerais: d.sintomasGerais || [],
-            detalhes_febre: d.detalhesFebre || null,
             regioes: d.regioesAfetadas || [],
-            sinais_alarme: d.sinaisAlarme || [],
             sintomas_especificos: d.detalhesSintomas || [],
-            respostas_investigativas: d.respostasInvestigativas || []
+            respostas_qualificadores: d.respostasQualificadores || {},
+            respostas_discriminantes: d.respostasDiscriminantes || [],
+            sinais_alarme: d.sinaisAlarme || [],
+            historico: d.algoMais || ""
         };
 
         try {
-            const resultado = await API.processarTriagem(payload);
+            // Envia para o Cérebro
+            const res = await API.processarTriagem(payload);
+            
             UI.hideLoading();
-            const hipoteses = resultado && resultado.hipoteses ? resultado.hipoteses : [];
-            UI.renderFinalReport(d, hipoteses);
-        } catch (error) {
-            console.error("Erro fatal:", error);
+            
+            // Renderiza o Relatório Final (Dual View)
+            UI.renderFinalReport(d, res.hipoteses || []);
+            
+        } catch (e) {
+            console.error("Erro na comunicação com a API:", e);
             UI.hideLoading();
-            UI.renderFinalReport(d, []);
+            UI.addOttoBubble("Houve um erro de conexão. Gerando relatório offline.");
+            UI.renderFinalReport(d, []); // Gera relatório vazio, mas não trava
         }
     },
 
-    getBackButtonHtml() { return `<div class="mt-3 text-center"><button id="btn-back-global" class="text-xs text-slate-400 underline hover:text-slate-600 py-2 px-4">Voltar Etapa</button></div>`; },
-    bindBackButton() { const btn = document.getElementById('btn-back-global'); if(btn) btn.onclick = () => this.goBack(); }
+    // Atalho para ligar o botão voltar do UI
+    bindBack() {
+        const btn = document.getElementById('btn-back');
+        if(btn) btn.onclick = () => this.goBack();
+    }
 };

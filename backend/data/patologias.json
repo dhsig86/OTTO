@@ -1,147 +1,595 @@
 {
-  "versao_protocolo": "7.0-Deep-Research",
-  "ultima_atualizacao": "2026-01-10",
+  "versao_protocolo": "HEART-3.0-CDSS-EvidenceBased",
+  "ultima_atualizacao": "2026-01-13",
+  "configuracoes_globais": {
+    "modo_sindromico": true,
+    "debug_mode": false,
+    "exibir_referencias": true
+  },
+  "textos_interface": {
+    "disclaimer": "Ferramenta de apoio à decisão clínica. Não substitui o exame físico.",
+    "nota_privacidade": "Dados protegidos conforme LGPD.",
+    "rodape_medico": "Sugestões baseadas em Guidelines (AAO-HNS, EPOS, ARIA). Correlacionar com otoscopia/rinoscopia."
+  },
+  "recursos_nlp": {
+    "sinonimos": {
+      "febre": ["quentura", "corpo quente", "febril", "38 graus"],
+      "odinofagia": ["dor de garganta", "garganta arranhando", "dor pra engolir"],
+      "obstrucao_nasal": ["nariz entupido", "nariz trancado", "fungando", "congestao"],
+      "rinorreia": ["coriza", "catarro", "secreção", "nariz escorrendo"],
+      "otalgia": ["dor de ouvido", "pontada no ouvido", "ouvido doendo"],
+      "hipoacusia": ["surdez", "ouvindo pouco", "ouvido abafado"],
+      "tontura": ["zonzeira", "labirintite", "teto rodando", "desequilibrio"],
+      "adenomegalia": ["caroço", "ingua", "bolinha no pescoço", "nodulo"]
+    },
+    "palavras_chave_dominio": {
+      "ouvido": ["ouvido", "audição", "tontura", "zumbido", "labirinto"],
+      "nariz": ["nariz", "face", "rosto", "cheiro", "espirro", "sinusite"],
+      "garganta": ["garganta", "voz", "pescoço", "engolir", "amígdala"]
+    }
+  },
   "anamnese_geral": {
     "obrigatorios": [
       { "id": "idade", "texto": "Qual sua idade?", "tipo": "numero" },
-      { "id": "sexo", "texto": "Qual seu sexo?", "tipo": "selecao", "opcoes": ["Masculino", "Feminino"] }
+      { "id": "sexo", "texto": "Sexo biológico?", "tipo": "selecao", "opcoes": ["Masculino", "Feminino"] },
+      { "id": "tipo_visita", "texto": "Tipo de atendimento?", "tipo": "selecao", "opcoes": ["Primeira vez", "Retorno"] }
     ],
-    "sintomas_sistemicos": ["febre", "perda_de_peso_inexplicada", "fraqueza_intensa", "alergia_medicamentosa"]
-  },
-  "fluxos_investigativos": {
-    "tontura": {
-      "pergunta": "Como é essa tontura e quanto tempo dura a crise?",
-      "opcoes": [
-        "Roda tudo rápido (< 1 min) ao deitar/virar",
-        "Roda forte por horas + ouvido tapado/zumbido",
-        "Tontura constante há dias + vômitos",
-        "Desequilíbrio + visão dupla ou fala enrolada"
-      ]
-    },
-    "dor_de_garganta": {
-      "pergunta": "Além da dor, você nota algum destes detalhes?",
-      "opcoes": [
-        "Tenho tosse e coriza também",
-        "Não tenho tosse, mas tenho febre alta",
-        "Dificuldade de abrir a boca (Trismo) ou voz de 'batata quente'",
-        "Apenas dor leve/pigarro crônico"
-      ]
-    },
-    "nariz_entupido": {
-      "pergunta": "Como evoluiu esse sintoma?",
-      "opcoes": [
-        "Começou há pouco tempo (< 5 dias)",
-        "Tinha melhorado, mas piorou de novo (Piora dupla)",
-        "Já dura mais de 10 dias sem melhorar",
-        "É crônico (meses/anos) e tenho alergia"
-      ]
-    },
-    "zumbido": {
-      "pergunta": "Como é esse zumbido?",
-      "opcoes": [
-        "Apito agudo contínuo",
-        "Chiado tipo TV ou cachoeira",
-        "Pulsátil (no ritmo do coração)",
-        "Estalos ou cliques"
-      ]
-    }
+    "sintomas_sistemicos": ["febre_aferida", "perda_peso_involuntaria", "sudorese_noturna", "fraqueza_extrema", "alergia_medicamentosa"],
+    "historico_geral": [
+      { "id": "diabetes", "texto": "Tem Diabetes ou Imunossupressão?" },
+      { "id": "tabagismo", "texto": "É fumante ou ex-fumante?" },
+      { "id": "hipertensao", "texto": "Tem pressão alta?" }
+    ]
   },
   "dominios": {
     "ouvido": {
-      "nome_exibicao": "Ouvido / Tontura",
-      "sintomas_gatilho": ["dor_de_ouvido", "tontura", "zumbido", "secrecao_no_ouvido", "surdez_subita"],
+      "nome_exibicao": "Ouvido e Equilíbrio",
       "sinais_alarme": [
-          { "id": "mastoidite", "texto": "Vermelhidão atrás da orelha" },
-          { "id": "surdez_subita", "texto": "Perda de audição súbita" }
+        { "id": "mastoidite", "texto": "Sinal de Jacques: Vermelhidão/Edema retroauricular com apagamento do sulco" },
+        { "id": "surdez_subita", "texto": "SSNHL: Perda auditiva súbita (<72h) inexplicada" },
+        { "id": "paralisia_facial", "texto": "Paralisia Facial Periférica associada à otalgia/otorreia" },
+        { "id": "neurologico", "texto": "HINTS positivo: Tontura com nistagmo atípico, disartria ou diplopia" }
       ],
+      "sintomas_gatilho": ["dor_ouvido", "ouvido_tapado", "zumbido", "secrecao_ouvido", "tontura", "coceira_ouvido", "perda_audicao"],
+      
+      "qualificadores": {
+        "dor_ouvido": {
+          "pergunta": "Caracterize a otalgia:",
+          "atributos": [
+            { "id": "tipo", "opcoes": ["Pontada/Agulhada", "Peso/Pressão", "Pulsátil (lateja)", "Queimação"] },
+            { "id": "intensidade", "tipo": "escala_0_10", "texto": "EVA (0-10):" },
+            { "id": "piora_com", "opcoes": ["Manipulação do pavilhão/Tragus", "Mastigação", "Decúbito (Ao deitar)", "Valsalva/Assoar"] }
+          ]
+        },
+        "secrecao_ouvido": {
+          "pergunta": "Aspecto da otorreia:",
+          "atributos": [
+            { "id": "aspecto", "opcoes": ["Hialina/Aquosa", "Purulenta (Amarela)", "Sanguinolenta", "Ceruminosa/Escura", "Fétida (Cheiro necrótico)"] }
+          ]
+        },
+        "tontura": {
+          "pergunta": "Semiologia da tontura:",
+          "atributos": [
+            { "id": "tipo", "opcoes": ["Vertigem Rotatória (Tudo roda)", "Pré-síncope (Desmaio)", "Desequilíbrio/Instabilidade", "Tontura inespecífica"] },
+            { "id": "duracao", "opcoes": ["Segundos (<1 min)", "Minutos a Horas", "Dias constantes"] },
+            { "id": "gatilho", "opcoes": ["Posicional (Ao virar na cama)", "Espontâneo", "Após IVAS", "Estresse/Visual"] }
+          ]
+        }
+      },
+
+      "fatores_discriminantes": [
+        { "id": "agua", "texto": "Exposição à umidade (piscina/mar) ou trauma local (cotonete) recente?" },
+        { "id": "ivas", "texto": "História recente de IVAS (Gripe/Resfriado)?" },
+        { "id": "trauma", "texto": "Barotrauma (avião/mergulho) ou trauma físico?" },
+        { "id": "recorrencia", "texto": "Quadro otológico recorrente/crônico?" },
+        { "id": "idade_pediatrica", "texto": "Paciente pediátrico (<10 anos)?" }
+      ],
+
       "patologias": [
-        {
-          "nome": "VPPB (Vertigem Posicional)",
-          "sinais_positivos_chave": ["tontura", "roda tudo rápido (< 1 min) ao deitar/virar"],
-          "regras_logicas": { "peso_base": 0.30, "modificadores": [] },
-          "condutas_sugeridas": ["Manobra de Dix-Hallpike.", "Manobra de Epley."],
-          "sugestao_questionario": "DHI (Dizziness Handicap Inventory)",
-          "referencia": "Bárány Society"
+        { 
+          "nome": "Otite Externa Aguda", 
+          "tipo": "Infecciosa", 
+          "sinais_chave": ["dor_ouvido", "piora_com:Manipulação do pavilhão/Tragus"], 
+          "fatores_peso": { "agua": 2.5, "trauma": 1.5 }, 
+          "negativos_pertinentes": ["sem_febre_alta"], 
+          "condutas": [
+            "[Dx] Otoscopia: Verificar edema de conduto, eritema e secreção.",
+            "[Tx] Tópico: Gotas com Ciprofloxacino + Corticoide por 7 dias.",
+            "[Tx] Analgesia: Dipirona/Paracetamol fixos. Evitar AINEs se houver risco gástrico.",
+            "[Orienta] Proibido molhar ouvido durante tratamento."
+          ], 
+          "referencia": "AAO-HNS Guidelines" 
         },
-        {
-          "nome": "Doença de Menière",
-          "sinais_positivos_chave": ["tontura", "roda forte por horas + ouvido tapado/zumbido", "zumbido"],
-          "regras_logicas": { "peso_base": 0.15, "modificadores": [] },
-          "condutas_sugeridas": ["Audiometria.", "Dieta hipossódica."],
-          "referencia": "AAO-HNS"
+        { 
+          "nome": "Otite Média Aguda (OMA)", 
+          "tipo": "Infecciosa", 
+          "sinais_chave": ["dor_ouvido", "febre_aferida", "ouvido_tapado"], 
+          "fatores_peso": { "ivas": 2.0, "idade_pediatrica": 2.0 }, 
+          "condutas": [
+            "[Dx] Otoscopia: Buscar abaulamento de membrana timpânica (sinal mais específico) e hiperemia.",
+            "[Tx] Wait-and-See: Se >2 anos, unilateral e sem gravidade, observar por 48h com analgesia.",
+            "[Tx] Antibiótico: Amoxicilina (45-90mg/kg) se <2 anos, bilateral, otorreia ou toxemia.",
+            "[Orienta] Retorno imediato se persistir febre >48h."
+          ], 
+          "referencia": "AAFP / SBP" 
         },
-        {
-          "nome": "AVC de Fossa Posterior (Alerta)",
-          "sinais_positivos_chave": ["desequilíbrio + visão dupla ou fala enrolada"],
-          "regras_logicas": { "peso_base": 0.05, "modificadores": [{ "criterio": "sintoma_focal", "valor": true, "peso_extra": 0.90 }] },
-          "condutas_sugeridas": ["EMERGÊNCIA: Protocolo AVC (HINTS).", "PS Imediato."],
-          "referencia": "Stroke Protocol"
+        { 
+          "nome": "Disfunção Tubária / OME", 
+          "tipo": "Mecânica", 
+          "sinais_chave": ["ouvido_tapado", "zumbido", "hipoacusia"], 
+          "fatores_peso": { "ivas": 1.5, "viagem": 2.5 }, 
+          "negativos_pertinentes": ["sem_dor_intensa", "sem_secrecao"], 
+          "condutas": [
+            "[Dx] Otoscopia: Membrana retraída, nível hidroaéreo ou bolhas.",
+            "[Tx] Manobras de Valsalva (se sem secreção nasal ativa).",
+            "[Tx] Corticoide Nasal Tópico para reduzir edema tubário.",
+            "[Orienta] Paciência: Resolução pode levar semanas."
+          ], 
+          "referencia": "Clinical Practice Guideline OME" 
         },
-        {
-          "nome": "Otite Média Aguda",
-          "sinais_positivos_chave": ["dor_de_ouvido", "febre"],
-          "regras_logicas": { "peso_base": 0.20, "modificadores": [{ "criterio": "febre", "valor": true, "peso_extra": 0.20 }] },
-          "condutas_sugeridas": ["Otoscopia.", "Analgesia."],
-          "referencia": "AAFP"
+        { 
+          "nome": "Rolha de Cerume", 
+          "tipo": "Obstrutiva", 
+          "sinais_chave": ["ouvido_tapado", "hipoacusia", "zumbido"], 
+          "fatores_peso": { "agua": 1.5 }, 
+          "negativos_pertinentes": ["sem_dor_forte", "sem_febre"], 
+          "condutas": [
+            "[Dx] Otoscopia: Visualização direta de cerume obstrutivo.",
+            "[Tx] Remoção: Lavagem otológica (se tímpano íntegro) ou aspiração.",
+            "[Tx] Ceruminolíticos: Usar 5-7 dias antes se muito endurecido."
+          ], 
+          "referencia": "Rotina ORL" 
+        },
+        { 
+          "nome": "VPPB (Vertigem Posicional)", 
+          "tipo": "Neurotologia", 
+          "sinais_chave": ["tontura", "duracao:Segundos (<1 min)", "gatilho:Posicional (Ao virar na cama)"], 
+          "condutas": [
+            "[Dx] Manobra de Dix-Hallpike: Verificar nistagmo (rotatório geotrópico p/ canal posterior).",
+            "[Tx] Reposicionamento: Manobra de Epley (Canal Posterior) ou Lempert (Canal Lateral).",
+            "[Orienta] Evitar dormir sobre o lado afetado por 24h."
+          ], 
+          "questionario": "DHI (Dizziness Handicap Inventory)", 
+          "referencia": "Bárány Society" 
+        },
+        { 
+          "nome": "Doença de Menière", 
+          "tipo": "Neurotologia", 
+          "sinais_chave": ["tontura", "duracao:Minutos a Horas", "ouvido_tapado", "zumbido"], 
+          "condutas": [
+            "[Dx] Audiometria: Buscar perda neurossensorial de graves (curva ascendente).",
+            "[Tx] Crise: Supressores vestibulares (Dimenidrato/Meclizina) apenas na fase aguda.",
+            "[Tx] Manutenção: Dieta hipossódica, Betistina e Diuréticos."
+          ], 
+          "referencia": "AAO-HNS" 
+        },
+        { 
+          "nome": "Neurite Vestibular", 
+          "tipo": "Neurotologia", 
+          "sinais_chave": ["tontura", "duracao:Dias constantes", "gatilho:Espontâneo"], 
+          "negativos_pertinentes": ["sem_perda_audicao", "sem_zumbido"], 
+          "condutas": [
+            "[Dx] HINTS: Head Impulse anormal, Nistagmo unidirecional, Test of Skew normal (afasta AVC).",
+            "[Tx] Corticoterapia sistêmica precoce (Janela 72h).",
+            "[Tx] Reabilitação Vestibular precoce (assim que passar náusea)."
+          ], 
+          "referencia": "Neurotology Practice" 
+        },
+        { 
+          "nome": "Surdez Súbita Idiopática", 
+          "tipo": "Urgencia", 
+          "sinais_chave": ["surdez_subita", "zumbido", "ouvido_tapado"], 
+          "condutas": [
+            "[ALERTA] Emergência funcional: Tempo é audição.",
+            "[Dx] Audiometria imediata e RM de APC (afastar Schwannoma).",
+            "[Tx] Corticoterapia oral (1mg/kg) ou intratimpânica de resgate."
+          ], 
+          "referencia": "AAO-HNS SSNHL Guideline" 
+        },
+        { 
+          "nome": "Mastoidite Aguda", 
+          "tipo": "RedFlag", 
+          "sinais_chave": ["dor_ouvido", "febre_aferida", "mastoidite"], 
+          "condutas": [
+            "[ALERTA] Risco de complicações intracranianas.",
+            "[Dx] Tomografia de Mastoides com contraste.",
+            "[Tx] Internação hospitalar e Antibioticoterapia venosa."
+          ], 
+          "referencia": "Protocolo Sepse" 
+        },
+        { 
+          "nome": "Otomicose", 
+          "tipo": "Infecciosa", 
+          "sinais_chave": ["coceira_ouvido", "ouvido_tapado", "secrecao_ouvido"], 
+          "condutas": [
+            "[Dx] Otoscopia: Hifas, massas algodonosas (pretas/brancas).",
+            "[Tx] Limpeza exaustiva (Aspiração) é fundamental.",
+            "[Tx] Antifúngico tópico (Clotrimazol/Miconazol) por 14 dias."
+          ], 
+          "referencia": "Entomology" 
+        },
+        { 
+          "nome": "Sintomas Otológicos Inespecíficos", 
+          "tipo": "Nulidade", 
+          "sinais_chave": [], 
+          "descricao": "Quadro clínico não preenche critérios para patologias agudas comuns.", 
+          "condutas": [
+            "[Dx] Exame físico completo (Otoscopia, Rinoscopia, Oroscopia).",
+            "[Dx] Avaliar otalgia reflexa (DTM, Dentes, Coluna Cervical).",
+            "[Orienta] Se persistirem sintomas, considerar exames de imagem."
+          ] 
         }
       ]
     },
-    "garganta": {
-      "nome_exibicao": "Garganta",
-      "sintomas_gatilho": ["dor_de_garganta", "rouquidao", "dificuldade_engolir"],
-      "sinais_alarme": [
-          { "id": "dispneia", "texto": "Falta de ar / Estridor" },
-          { "id": "disfagia", "texto": "Não consegue engolir saliva" }
-      ],
-      "patologias": [
-        {
-          "nome": "Faringotonsilite Viral",
-          "sinais_positivos_chave": ["dor_de_garganta", "tenho tosse e coriza também"],
-          "regras_logicas": { "peso_base": 0.40, "modificadores": [] },
-          "condutas_sugeridas": ["Sintomáticos.", "Não usar antibiótico."],
-          "referencia": "Centor Modificado"
-        },
-        {
-          "nome": "Amigdalite Bacteriana",
-          "sinais_positivos_chave": ["dor_de_garganta", "não tenho tosse, mas tenho febre alta", "febre"],
-          "regras_logicas": { "peso_base": 0.20, "modificadores": [] },
-          "condutas_sugeridas": ["Teste Rápido Strepto.", "Antibiótico se confirmado."],
-          "referencia": "Centor Criteria"
-        },
-        {
-          "nome": "Abscesso Periamigdaliano",
-          "sinais_positivos_chave": ["dificuldade de abrir a boca (trismo) ou voz de 'batata quente'"],
-          "regras_logicas": { "peso_base": 0.10, "modificadores": [{ "criterio": "trismo", "valor": true, "peso_extra": 0.60 }] },
-          "condutas_sugeridas": ["URGÊNCIA: Drenagem.", "Antibiótico venoso."],
-          "referencia": "Deep Research"
-        }
-      ]
-    },
+
     "nariz": {
-      "nome_exibicao": "Nariz",
-      "sintomas_gatilho": ["nariz_entupido", "coriza", "dor_face", "espirros"],
-      "patologias": [
-        {
-          "nome": "Rinossinusite Bacteriana",
-          "sinais_positivos_chave": ["dor_face", "tinha melhorado, mas piorou de novo (piora dupla)", "febre"],
-          "regras_logicas": { "peso_base": 0.15, "modificadores": [] },
-          "condutas_sugeridas": ["Critério 'Double Sickening'.", "Antibiótico?"],
-          "referencia": "EPOS 2020"
+      "nome_exibicao": "Nariz e Seios da Face",
+      "sinais_alarme": [
+        { "id": "celulite_orbitaria", "texto": "Complicação Orbitária: Edema/Eritema palpebral, dor à movimentação ocular" },
+        { "id": "meningite", "texto": "Sinais Meníngeos: Cefaleia intensa + Rigidez de nuca + Febre" },
+        { "id": "epistaxe_grave", "texto": "Epistaxe incoercível: Sangramento ativo > 20min com instabilidade" },
+        { "id": "trombose_cavernoso", "texto": "Sinais de Cavernoso: Ptose, oftalmoplegia, prostração" }
+      ],
+      "sintomas_gatilho": ["nariz_entupido", "coriza", "espirros", "dor_face", "sangramento_nasal", "mau_cheiro_nariz", "perda_olfato", "ferida_nariz", "coceira_nariz"],
+      
+      "qualificadores": {
+        "coriza": {
+          "pergunta": "Características da rinorreia:",
+          "atributos": [
+            { "id": "cor", "opcoes": ["Hialina (Transparente)", "Purulenta (Amarela/Verde)", "Sanguinolenta", "Crostosa/Marrom", "Fétida (Cacosmia)"] },
+            { "id": "viscosidade", "opcoes": ["Aquosa", "Mucóide/Espessa", "Ressecada"] }
+          ]
         },
-        {
-          "nome": "Rinite Alérgica",
-          "sinais_positivos_chave": ["espirros", "coriza", "é crônico (meses/anos) e tenho alergia"],
-          "regras_logicas": { "peso_base": 0.30, "modificadores": [] },
-          "condutas_sugeridas": ["Controle ambiental.", "Spray nasal."],
-          "sugestao_questionario": "NOSE Score",
-          "referencia": "ARIA"
+        "dor_face": {
+          "pergunta": "Localização e padrão da dor:",
+          "atributos": [
+            { "id": "local", "opcoes": ["Frontal (Testa)", "Maxilar (Maçã)", "Etmoidal (Entre olhos)", "Odontogênica (Dentes)"] },
+            { "id": "piora_com", "opcoes": ["Abaixar a cabeça (Sinal de pressão)", "Ao assoar", "Constante"] },
+            { "id": "intensidade", "tipo": "escala_0_10" }
+          ]
+        },
+        "nariz_entupido": {
+          "pergunta": "Padrão da obstrução:",
+          "atributos": [
+            { "id": "padrao", "opcoes": ["Fixa Unilateral", "Bilateral", "Báscula (Alternante)"] }
+          ]
+        }
+      },
+
+      "fatores_discriminantes": [
+        { "id": "cronico", "texto": "Critério Temporal: Sintomas persistem > 12 semanas?" },
+        { "id": "alergia_conhecida", "texto": "Atopia: História pessoal de rinite/asma/dermatite?" },
+        { "id": "double_sickening", "texto": "Double Sickening: Piora após melhora inicial (bacteriana)?" },
+        { "id": "uso_descongestionante", "texto": "Uso crônico de vasoconstritor tópico (gotas)?" },
+        { "id": "trauma", "texto": "Trauma nasal recente?" }
+      ],
+
+      "patologias": [
+        { 
+          "nome": "Rinossinusite Aguda Viral (IVAS)", 
+          "tipo": "Infecciosa", 
+          "sinais_chave": ["nariz_entupido", "coriza:Hialina (Transparente)", "espirros"], 
+          "negativos_pertinentes": ["sem_febre_alta", "sem_dor_intensa"], 
+          "condutas": [
+            "[Dx] Clínico. Não solicitar Raio-X de Seios da Face (baixo valor preditivo).",
+            "[Tx] Lavagem Nasal com Soro Fisiológico (alto volume).",
+            "[Tx] Sintomáticos (Analgésicos/Descongestionantes orais por <5 dias).",
+            "[Orienta] Não usar antibióticos. Evolução natural de 7-10 dias."
+          ], 
+          "referencia": "EPOS 2020" 
+        },
+        { 
+          "nome": "Rinossinusite Aguda Bacteriana", 
+          "tipo": "Infecciosa", 
+          "sinais_chave": ["dor_face", "coriza:Purulenta (Amarela/Verde)", "febre_aferida"], 
+          "fatores_peso": { "double_sickening": 3.0, "piora_ao_abaixar": 1.5 }, 
+          "condutas": [
+            "[Critério] Diagnóstico se: Febre >38°C, Double Sickening ou Dor intensa + ESR elevado.",
+            "[Tx] Primeira linha: Amoxicilina (500mg 8/8h) por 7-10 dias.",
+            "[Tx] Adjuvantes: Lavagem nasal salina hipertônica + Corticoide tópico.",
+            "[Orienta] Se falha em 72h, considerar Amox+Clavulanato."
+          ], 
+          "referencia": "EPOS 2020" 
+        },
+        { 
+          "nome": "Rinite Alérgica", 
+          "tipo": "Inflamatória", 
+          "sinais_chave": ["espirros", "coceira_nariz", "coriza:Hialina (Transparente)", "nariz_entupido:Báscula (Alternante)"], 
+          "fatores_peso": { "alergia_conhecida": 2.0 }, 
+          "condutas": [
+            "[Dx] Rinoscopia: Cornetos pálidos/edemaciados e secreção hialina.",
+            "[Tx] Crise: Anti-histamínico oral de 2ª geração (Fexofenadina/Loratadina).",
+            "[Tx] Manutenção: Corticoide tópico nasal (Mometasona/Fluticasona) contínuo.",
+            "[Orienta] Controle ambiental (evitar poeira/mofo)."
+          ], 
+          "questionario": "NOSE Score", 
+          "referencia": "ARIA Guidelines" 
+        },
+        { 
+          "nome": "Rinite Medicamentosa", 
+          "tipo": "Induzida", 
+          "sinais_chave": ["nariz_entupido:Bilateral"], 
+          "fatores_peso": { "uso_descongestionante": 5.0 }, 
+          "condutas": [
+            "[Dx] História clínica de dependência de vasoconstritor (Nafazolina/Oximetazolina).",
+            "[Tx] Suspensão imediata (Desmame).",
+            "[Tx] Corticoide oral (curto prazo) + Tópico para segurar o efeito rebote."
+          ], 
+          "referencia": "Rhinology" 
+        },
+        { 
+          "nome": "Rinossinusite Crônica (RSC)", 
+          "tipo": "Crônica", 
+          "sinais_chave": ["nariz_entupido", "coriza:Purulenta (Amarela/Verde)", "dor_face"], 
+          "fatores_peso": { "cronico": 3.0 }, 
+          "condutas": [
+            "[Dx] Tomografia Computadorizada de Seios da Face (Padrão Ouro).",
+            "[Dx] Nasofibroscopia para ver drenagem no meato médio.",
+            "[Tx] Tratamento clínico máximo (Lavagem + Corticoide Tópico/Sistêmico) antes de cirurgia."
+          ], 
+          "questionario": "SNOT-22", 
+          "referencia": "EPOS 2020" 
+        },
+        { 
+          "nome": "Desvio de Septo Nasal", 
+          "tipo": "Estrutural", 
+          "sinais_chave": ["nariz_entupido:Fixa Unilateral"], 
+          "fatores_peso": { "cronico": 2.0, "trauma_antigo": 1.5 }, 
+          "negativos_pertinentes": ["sem_coriza", "sem_espirros"], 
+          "condutas": [
+            "[Dx] Rinoscopia anterior e Nasofibroscopia.",
+            "[Tx] Expectante se assintomático.",
+            "[Tx] Septoplastia se obstrução impactar qualidade de vida ou impedir sono."
+          ], 
+          "questionario": "NOSE Score", 
+          "referencia": "AAO-HNS" 
+        },
+        { 
+          "nome": "Vestibulite Nasal", 
+          "tipo": "Infecciosa", 
+          "sinais_chave": ["dor_face", "ferida_nariz", "coriza:Crostosa/Marrom"], 
+          "condutas": [
+            "[Dx] Inspeção: Fissuras ou crostas no vestíbulo nasal (entrada).",
+            "[Tx] Pomada antibiótica (Mupirocina/Neomicina) 3x ao dia.",
+            "[Orienta] Evitar manipulação digital (dedo no nariz)."
+          ], 
+          "referencia": "Dermatologia" 
+        },
+        { 
+          "nome": "Epistaxe Anterior", 
+          "tipo": "Vascular", 
+          "sinais_chave": ["sangramento_nasal"], 
+          "condutas": [
+            "[Tx] Imediato: Compressão digital (pinça) por 10 min + Gelo + Tronco fletido a frente.",
+            "[Tx] Consultório: Cauterização química (Nitrato de Prata) ou elétrica se vaso visível (Kiesselbach).",
+            "[Tx] Hidratação nasal com gel salino."
+          ], 
+          "referencia": "AAO-HNS Epistaxis CPG" 
+        },
+        { 
+          "nome": "Hematoma Septal", 
+          "tipo": "Urgencia", 
+          "sinais_chave": ["nariz_entupido:Bilateral", "dor_face"], 
+          "fatores_peso": { "trauma": 5.0 }, 
+          "condutas": [
+            "[ALERTA] Urgência cirúrgica.",
+            "[Dx] Rinoscopia: Abaulamento avermelhado/arroxeado no septo, compressível.",
+            "[Tx] Drenagem incisional imediata para evitar necrose de cartilagem (Nariz em sela)."
+          ], 
+          "referencia": "Trauma Facial" 
+        },
+        { 
+          "nome": "Sintomas Nasais Inespecíficos", 
+          "tipo": "Nulidade", 
+          "sinais_chave": [], 
+          "descricao": "Quadro nasal inespecífico. Necessária investigação.", 
+          "condutas": [
+            "[Dx] Nasofibrolaringoscopia flexível.",
+            "[Dx] TC de Seios da Face se persistência > 12 semanas."
+          ] 
         }
       ]
     },
-    "pescoco": {
-      "nome_exibicao": "Pescoço",
-      "sintomas_gatilho": ["caroco", "dor_pescoco"],
-      "patologias": []
+
+    "garganta": {
+      "nome_exibicao": "Garganta, Voz e Pescoço",
+      "sinais_alarme": [
+        { "id": "dispneia", "texto": "Obstrução Respiratória Alta: Estridor, tiragem ou falta de ar" },
+        { "id": "disfagia_total", "texto": "Disfagia Absoluta: Sialorreia (babando), incapacidade de engolir" },
+        { "id": "rouquidao_longa", "texto": "Disfonia persistente > 3 semanas (Risco oncológico)" },
+        { "id": "hemoptise", "texto": "Hemoptise: Sangramento vindo da via aérea" }
+      ],
+      "sintomas_gatilho": ["dor_garganta", "rouquidao", "dificuldade_engolir", "pigarro", "sensacao_bolo", "mau_halito", "caroco_pescoco", "ronco"],
+      
+      "qualificadores": {
+        "dor_garganta": {
+          "pergunta": "Características da odinofagia:",
+          "atributos": [
+             { "id": "intensidade", "tipo": "escala_0_10" }, 
+             { "id": "irradiacao", "opcoes": ["Otalgia reflexa (Vai para o ouvido)", "Localizada"] }
+          ]
+        },
+        "rouquidao": {
+          "pergunta": "Qualidade vocal:",
+          "atributos": [{ "id": "tipo", "opcoes": ["Soprosa (Ar na voz)", "Áspera/Rude", "Trêmula", "Afonia (Sem voz)"] }]
+        },
+        "caroco_pescoco": {
+          "pergunta": "Características da massa cervical:",
+          "atributos": [
+            { "id": "dor", "opcoes": ["Doloroso (Inflamatório)", "Indolor"] }, 
+            { "id": "tempo", "opcoes": ["Agudo (<2 semanas)", "Crônico (>2 semanas)"] }
+          ]
+        }
+      },
+
+      "fatores_discriminantes": [
+        { "id": "tabagismo", "texto": "Tabagismo: Fuma ou fumou recentemente?" },
+        { "id": "febre", "texto": "Toxemia: Febre medida > 38°C?" },
+        { "id": "tosse", "texto": "Sintomas virais: Tosse ou coriza associada?" },
+        { "id": "trismo", "texto": "Trismo: Dificuldade de abrir a boca?" },
+        { "id": "abuso_vocal", "texto": "Trauma fonatório: Uso intenso da voz?" }
+      ],
+
+      "patologias": [
+        { 
+          "nome": "Faringotonsilite Viral", 
+          "tipo": "Infecciosa", 
+          "sinais_chave": ["dor_garganta", "tosse", "coriza"], 
+          "negativos_pertinentes": ["sem_febre_alta"], 
+          "condutas": [
+            "[Dx] Oroscopia: Hiperemia difusa, sem exsudato purulento franco.",
+            "[Tx] Suporte: Hidratação, Analgesia (Dipirona/Ibuprofeno).",
+            "[Tx] Pastilhas anestésicas permitidas.",
+            "[Orienta] Não usar antibióticos."
+          ], 
+          "referencia": "ACP Guidelines" 
+        },
+        { 
+          "nome": "Amigdalite Bacteriana (Estrepto)", 
+          "tipo": "Infecciosa", 
+          "sinais_chave": ["dor_garganta", "febre"], 
+          "negativos_pertinentes": ["sem_tosse"], 
+          "fatores_peso": { "febre": 2.0 }, 
+          "condutas": [
+            "[Dx] Critérios de Centor/McIsaac. Se alto risco: Teste Rápido Strepto A.",
+            "[Tx] Primeira linha: Penicilina Benzatina (Dose única) ou Amoxicilina 10 dias.",
+            "[Tx] Alérgicos: Azitromicina ou Clindamicina.",
+            "[Orienta] Trocar escova de dentes após 24h de tratamento."
+          ], 
+          "referencia": "Centor Criteria / IDSA" 
+        },
+        { 
+          "nome": "Abscesso Periamigdaliano", 
+          "tipo": "RedFlag", 
+          "sinais_chave": ["dor_garganta", "dificuldade_engolir", "dor_garganta:Otalgia reflexa (Vai para o ouvido)"], 
+          "fatores_peso": { "trismo": 5.0 }, 
+          "condutas": [
+            "[ALERTA] Urgência ORL.",
+            "[Dx] Oroscopia: Abaulamento de pilar, desvio de úvula, trismo.",
+            "[Tx] Drenagem: Punção aspirativa ou Incisão e drenagem.",
+            "[Tx] Antibiótico: Clindamicina ou Amox+Clavulanato + Corticoide."
+          ], 
+          "referencia": "Deep Space Infections" 
+        },
+        { 
+          "nome": "Refluxo Laringofaríngeo (LPR)", 
+          "tipo": "Inflamatória", 
+          "sinais_chave": ["pigarro", "sensacao_bolo", "rouquidao"], 
+          "negativos_pertinentes": ["sem_dor_forte", "sem_febre"], 
+          "condutas": [
+            "[Dx] Videolaringoscopia: Edema retrocricoide, paquidermia.",
+            "[Tx] Medidas Comportamentais: Dieta anti-refluxo, elevar cabeceira, jantar cedo.",
+            "[Tx] Medicamentoso: IBP (Omeprazol) dose plena por 2-3 meses."
+          ], 
+          "questionario": "RSI (Reflux Symptom Index)", 
+          "referencia": "Koufman" 
+        },
+        { 
+          "nome": "Laringite Aguda", 
+          "tipo": "Inflamatória", 
+          "sinais_chave": ["rouquidao", "rouquidao:Afonia (Sem voz)"], 
+          "fatores_peso": { "tosse": 1.5, "ivas": 2.0, "abuso_vocal": 2.0 }, 
+          "condutas": [
+            "[Tx] Repouso Vocal Absoluto (Voice Rest).",
+            "[Tx] Hidratação vigorosa.",
+            "[Orienta] Evitar sussurrar (força mais a laringe)."
+          ], 
+          "referencia": "AAO-HNS" 
+        },
+        { 
+          "nome": "Mononucleose Infecciosa", 
+          "tipo": "Infecciosa", 
+          "sinais_chave": ["dor_garganta", "caroco_pescoco", "fraqueza_extrema"], 
+          "condutas": [
+            "[Dx] Hemograma (Linfocitose atípica) e Sorologia EBV.",
+            "[Tx] Sintomáticos. Evitar Amoxicilina (risco de rash cutâneo).",
+            "[Orienta] Evitar esportes de contato (risco de ruptura esplênica)."
+          ], 
+          "referencia": "Infectologia" 
+        },
+        { 
+          "nome": "Caseum (Tonsilolitos)", 
+          "tipo": "Crônica", 
+          "sinais_chave": ["mau_halito", "sensacao_bolo", "dor_garganta"], 
+          "condutas": [
+            "[Dx] Inspeção: Pontos amarelados nas criptas amigdalianas.",
+            "[Tx] Gargarejos com solução salina após refeições.",
+            "[Tx] Definitivo: Amigdalectomia (se houver indicação cirúrgica)."
+          ], 
+          "referencia": "Rotina ORL" 
+        },
+        { 
+          "nome": "Neoplasia de Laringe (Suspeita)", 
+          "tipo": "RedFlag", 
+          "sinais_chave": ["rouquidao", "dificuldade_engolir"], 
+          "fatores_peso": { "tabagismo": 3.0, "rouquidao_longa": 4.0 }, 
+          "condutas": [
+            "[ALERTA] Encaminhamento prioritário (Via Rápida).",
+            "[Dx] Videolaringoscopia urgente com biópsia de lesão suspeita.",
+            "[Dx] TC de Pescoço para estadiamento."
+          ], 
+          "referencia": "NICE Guidelines" 
+        },
+        { 
+          "nome": "Apneia Obstrutiva do Sono (SAOS)", 
+          "tipo": "Estrutural", 
+          "sinais_chave": ["ronco", "ronco:Engasgos noturnos"], 
+          "condutas": [
+            "[Dx] Polissonografia (Tipo 1 a 4).",
+            "[Dx] Nasofibroscopia com manobra de Muller.",
+            "[Tx] CPAP, Aparelho Intraoral ou Cirurgia (conforme gravidade)."
+          ], 
+          "questionario": "STOP-Bang / Epworth", 
+          "referencia": "AASM" 
+        },
+        { 
+          "nome": "Linfadenite Reacional", 
+          "tipo": "Infecciosa", 
+          "sinais_chave": ["caroco_pescoco", "caroco_pescoco:Doloroso (Inflamatório)"], 
+          "fatores_peso": { "ivas": 2.0 }, 
+          "condutas": [
+            "[Dx] Buscar foco infeccioso (Dente, Amígdala, Couro cabeludo).",
+            "[Tx] Observação por 2-3 semanas + Anti-inflamatório.",
+            "[Orienta] Se persistir ou crescer: USG Cervical."
+          ], 
+          "referencia": "Neck Masses Guideline" 
+        },
+        { 
+          "nome": "Sialadenite (Cálculo Salivar)", 
+          "tipo": "Infecciosa", 
+          "sinais_chave": ["dor_face", "inchaço_rosto"], 
+          "fatores_peso": { "piora_ao_comer": 3.0 }, 
+          "condutas": [
+            "[Dx] Palpação bimanual de assoalho bucal/parótida.",
+            "[Tx] Sialogogos (Limão, balas ácidas) para estimular fluxo.",
+            "[Tx] Antibiótico (Cefalosporina) se houver pus no ducto.",
+            "[Dx] USG ou Sialografia para ver cálculo."
+          ], 
+          "referencia": "Rotina ORL" 
+        },
+        { 
+          "nome": "Corpo Estranho de Orofaringe", 
+          "tipo": "Mecânica", 
+          "sinais_chave": ["dor_garganta", "dor_garganta:Pontada/Agulhada"], 
+          "fatores_peso": { "comeu_peixe": 5.0 }, 
+          "condutas": [
+            "[Dx] Oroscopia e Laringoscopia (busca em base de língua e valécula).",
+            "[Tx] Remoção sob visão direta.",
+            "[Orienta] Se não visualizado e sintoma persistir: TC ou Endoscopia Digestiva."
+          ], 
+          "referencia": "Urgência" 
+        },
+        { 
+          "nome": "Sintomas Faríngeos Inespecíficos", 
+          "tipo": "Nulidade", 
+          "sinais_chave": [], 
+          "descricao": "Queixa faríngea a esclarecer.", 
+          "condutas": [
+            "[Dx] Videolaringoscopia rígida ou flexível.",
+            "[Dx] Avaliar Doença do Refluxo ou causas funcionais."
+          ] 
+        }
+      ]
     }
   }
 }

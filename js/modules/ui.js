@@ -1,5 +1,5 @@
-// MÓDULO UI v4.0 - Interface Blindada e Dual View
-// Inclui correção de variáveis para evitar tela branca
+// MÓDULO UI v5.0 - Relatório Médico Profissional (HDA + CDSS)
+// Atualizado para gerar texto corrido e separar condutas
 
 const chatContainer = document.getElementById('chat-container');
 const inputArea = document.getElementById('input-area');
@@ -150,98 +150,125 @@ export const UI = {
 
     backBtn: () => `<div class="mt-2 text-center"><button id="btn-back" class="text-xs text-slate-400 underline py-2 hover:text-slate-600">Voltar</button></div>`,
     
-    // --- RELATÓRIO FINAL ---
+    // ========================================================
+    //      O NOVO GERADOR DE RELATÓRIO (WRITER 5.0)
+    // ========================================================
     renderFinalReport(dados, hipoteses) {
-        // CORREÇÃO CRÍTICA: Proteção contra lista nula e uso da variável correta 'detalhesSintomas'
-        const listaSintomas = dados.detalhesSintomas || []; 
-        const respostasQualif = dados.respostasQualificadores || {};
-        const respostasDiscrim = dados.respostasDiscriminantes || [];
+        // Recupera dados com segurança
+        const listaSintomas = dados.detalhesSintomas || [];
+        const qualificadores = dados.respostasQualificadores || {};
+        const discriminantes = dados.respostasDiscriminantes || [];
         const listaHipoteses = hipoteses || [];
 
-        // HTML VIA MÉDICA
+        // 1. CONSTRUÇÃO DA HDA (TEXTO CORRIDO)
+        // Monta o texto como um médico escreveria no prontuário
+        let textoHDA = `Paciente ${dados.demografia.sexo}, ${dados.demografia.idade} anos, em consulta de ${dados.demografia.tipo_visita}. \n\n`;
+        textoHDA += `**Queixa Principal:** "${dados.qp_real}". \n`;
+        
+        // Integração dos Sintomas Estruturados
+        if(listaSintomas.length > 0) {
+            textoHDA += `\n**História da Moléstia Atual:** Ao interrogatório dirigido, confirma `;
+            const partes = listaSintomas.map(s => {
+                let desc = UI.formatText(s);
+                // Adiciona qualificadores inline (Ex: "Dor (Intensidade: 8)")
+                if(qualificadores[s]) {
+                    const dets = Object.entries(qualificadores[s])
+                        .map(([k,v]) => `${k}: ${v}`) // Ex: intensidade: 8
+                        .join(", ");
+                    if(dets) desc += ` (${dets})`;
+                }
+                return desc;
+            });
+            textoHDA += partes.join(", ") + ". ";
+        }
+
+        // Integração dos Fatores Positivos (Sim/Não)
+        if(discriminantes.length > 0) {
+            textoHDA += `\n\n**Fatores Associados:** Relata ${discriminantes.map(d => UI.formatText(d)).join(", ")}. `;
+        }
+
+        // Integração do "Algo Mais" (Texto Livre) - CRUCIAL
+        if(dados.algoMais && dados.algoMais.length > 2) {
+            textoHDA += `\n\n**Observações Adicionais:** ${dados.algoMais}.`;
+        }
+
+        // Integração dos Negativos Pertinentes (Simplificado)
+        if(dados.sintomasGerais && dados.sintomasGerais.length > 0) {
+            textoHDA += `\n\n**Sintomas Sistêmicos:** ${dados.sintomasGerais.join(", ")}.`;
+        } else {
+            textoHDA += `\n\nNega sintomas sistêmicos (febre, perda de peso).`;
+        }
+
+        // 2. CONSTRUÇÃO DO HTML MÉDICO
         let htmlMedico = `
-        <div class="p-4 bg-white font-mono text-xs leading-relaxed text-slate-800">
-            <div class="bg-slate-900 text-white p-2 rounded mb-3 flex justify-between items-center">
-                <span class="font-bold uppercase">${dados.nome}</span> 
-                <span class="opacity-75">${dados.demografia.idade} anos | ${dados.demografia.sexo}</span>
+        <div class="p-5 bg-white font-sans text-sm text-slate-800 leading-relaxed">
+            <div class="flex justify-between items-center border-b pb-3 mb-4">
+                <div>
+                    <h2 class="font-bold text-lg text-slate-900 uppercase">${dados.nome}</h2>
+                    <p class="text-slate-500 text-xs">ID: ${Math.floor(Math.random()*10000)} | ${new Date().toLocaleDateString()}</p>
+                </div>
+                <div class="text-right">
+                    <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-bold">${dados.demografia.tipo_visita}</span>
+                </div>
             </div>
 
-            <div class="mb-3">
-                <p class="font-bold text-slate-400 text-[10px] mb-1">QUEIXA PRINCIPAL</p>
-                <p class="bg-slate-50 p-2 rounded border border-slate-100">"${dados.qp_real}"</p>
+            <div class="mb-6">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Anamnese (HDA)</h3>
+                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 whitespace-pre-wrap text-slate-700 font-medium text-sm">
+${textoHDA}
+                </div>
+                ${dados.sinaisAlarme && dados.sinaisAlarme.length > 0 ? 
+                    `<div class="mt-2 bg-red-50 border-l-4 border-red-500 p-3 text-red-800 font-bold flex gap-2 items-center">
+                        <span class="text-xl">🚨</span> <span>Sinais de Alerta: ${dados.sinaisAlarme.join(", ")}</span>
+                    </div>` : ''}
             </div>
 
-            <div class="mb-3">
-                <p class="font-bold text-slate-400 text-[10px] mb-1">HISTÓRIA DA DOENÇA ATUAL (HDA)</p>
-                <ul class="list-disc pl-4 space-y-1">
+            <div>
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <span>⚡</span> Suporte à Decisão Clínica (CDSS)
+                </h3>
         `;
-        
-        // Loop seguro pelos sintomas
-        listaSintomas.forEach(s => {
-            let texto = `<strong>${UI.formatText(s)}</strong>`;
-            const qualifs = respostasQualif[s];
-            if(qualifs) {
-                // Formata os detalhes bonitinhos
-                const detalhes = Object.entries(qualifs)
-                    .map(([k,v]) => `<span class="italic text-slate-500">${k}: ${v}</span>`)
-                    .join(", ");
-                texto += ` <span class="text-[10px]">(${detalhes})</span>`;
-            }
-            htmlMedico += `<li>${texto}</li>`;
-        });
-        
-        if(respostasDiscrim.length > 0) {
-            htmlMedico += `<li class="mt-2 text-blue-700 font-bold">Fatores Positivos: ${respostasDiscrim.join(", ")}</li>`;
-        }
-        
-        if(dados.algoMais) {
-             htmlMedico += `<li class="mt-2 text-orange-700">Obs: ${dados.algoMais}</li>`;
-        }
 
-        htmlMedico += `</ul></div>`;
-        
-        // Alertas Vermelhos
-        if(dados.sinaisAlarme && dados.sinaisAlarme.length > 0) {
-            htmlMedico += `<div class="bg-red-50 border-l-4 border-red-500 p-2 mb-3 text-red-800 font-bold flex items-center gap-2"><span>⚠️</span> ALERTA: ${dados.sinaisAlarme.join(", ")}</div>`;
-        }
-
-        // CDSS (IA)
-        htmlMedico += `<div class="border-t pt-2 mt-4">
-            <p class="font-bold text-slate-400 text-[10px] mb-2 uppercase tracking-wider">Suporte à Decisão Clínica (CDSS)</p>`;
-        
         if(listaHipoteses.length === 0) {
-            htmlMedico += `<p class="italic text-slate-400 p-2 text-center">Sem correlação algorítmica específica para protocolos de urgência.</p>`;
+            htmlMedico += `<div class="p-4 bg-gray-50 rounded border text-center text-slate-400 italic">Sem correlação algorítmica específica para os protocolos cadastrados.</div>`;
         } else {
             listaHipoteses.forEach(h => {
-                // Condutas Coloridas
+                // Formatação rica das condutas com cores
                 const condutasHTML = h.condutas ? h.condutas.map(c => {
-                    if(c.includes("[Dx]")) return `<p class="text-blue-700 pl-2 border-l-2 border-blue-200 mb-1">🔍 ${c.replace("[Dx]", "")}</p>`;
-                    if(c.includes("[Tx]")) return `<p class="text-green-700 pl-2 border-l-2 border-green-200 mb-1">💊 ${c.replace("[Tx]", "")}</p>`;
-                    if(c.includes("[ALERTA]")) return `<p class="text-red-600 font-bold pl-2 border-l-2 border-red-200 mb-1">🚨 ${c.replace("[ALERTA]", "")}</p>`;
-                    return `<p class="text-slate-600 pl-2 mb-1">• ${c}</p>`;
+                    if(c.includes("[Dx]")) return `<li class="text-blue-700 mb-1 pl-2 border-l-2 border-blue-200"><span class="font-bold">Exame:</span> ${c.replace("[Dx]", "")}</li>`;
+                    if(c.includes("[Tx]")) return `<li class="text-green-700 mb-1 pl-2 border-l-2 border-green-200"><span class="font-bold">Conduta:</span> ${c.replace("[Tx]", "")}</li>`;
+                    if(c.includes("[Orienta]")) return `<li class="text-slate-500 italic mb-1 pl-2 border-l-2 border-slate-200">Nota: ${c.replace("[Orienta]", "")}</li>`;
+                    if(c.includes("[ALERTA]")) return `<li class="text-red-600 font-bold mb-1 pl-2 border-l-2 border-red-500">⚠️ ${c.replace("[ALERTA]", "")}</li>`;
+                    return `<li class="text-slate-600">• ${c}</li>`;
                 }).join("") : "";
 
                 htmlMedico += `
-                <div class="mb-3 bg-slate-50 p-3 rounded border border-slate-200 shadow-sm">
-                    <div class="flex justify-between font-bold text-slate-800 border-b border-slate-200 pb-1 mb-2">
-                        <span>${h.doenca}</span> 
-                        <span class="bg-white px-2 rounded border text-xs flex items-center">${h.probabilidade}%</span>
+                <div class="mb-4 border rounded-lg overflow-hidden shadow-sm bg-white">
+                    <div class="bg-slate-50 px-4 py-2 flex justify-between items-center border-b">
+                        <span class="font-bold text-slate-800 text-sm">${h.doenca}</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] text-slate-500">Match: ${h.probabilidade}%</span>
+                            <div class="w-16 h-2 bg-slate-200 rounded-full overflow-hidden"><div class="h-full bg-blue-500" style="width: ${h.probabilidade}%"></div></div>
+                        </div>
                     </div>
-                    
-                    <div class="text-[10px] text-slate-500 mb-2">Base: ${h.baseado_em.join(", ")}</div>
-                    <div class="space-y-1 text-[11px] leading-tight">${condutasHTML}</div>
+                    <div class="p-3">
+                        <p class="text-[10px] text-slate-400 mb-2 uppercase tracking-wide">Evidências: ${h.baseado_em.join(", ")}</p>
+                        <ul class="list-none text-xs space-y-2 pl-1">
+                            ${condutasHTML}
+                        </ul>
+                        ${h.referencia ? `<p class="text-[9px] text-right text-slate-300 mt-2">Ref: ${h.referencia}</p>` : ''}
+                    </div>
                 </div>`;
             });
         }
-        
-        htmlMedico += `</div></div>`; // Fim
-        
-        UI.renderTabs(htmlMedico); 
+        htmlMedico += `</div></div>`; // Fim container
+
+        UI.renderTabs(htmlMedico);
     },
-    
+
     renderTabs(htmlMedico) {
         const div = document.createElement('div');
-        div.className = "mt-4 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden mb-20 fade-in";
+        div.className = "mt-4 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden mb-20 fade-in";
         div.innerHTML = `
             <div class="flex border-b bg-slate-50">
                 <button class="flex-1 py-4 font-bold text-blue-600 bg-white border-b-2 border-blue-600 transition" id="tab-pat">👤 Para Você</button>
@@ -250,69 +277,64 @@ export const UI = {
             
             <div id="content-pat" class="p-8 text-center animate-slide-in">
                 <div class="w-20 h-20 bg-green-100 text-green-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-4 shadow-sm">✓</div>
-                <h3 class="text-xl font-bold text-slate-800 mb-2">Triagem Concluída!</h3>
-                <p class="text-slate-500 mb-6">Seus dados já foram organizados para o Dr. Dario.</p>
-                
-                <div class="bg-blue-50 p-4 rounded-xl border border-blue-100 text-left">
-                    <p class="text-xs font-bold text-blue-500 uppercase mb-2">Próximos Passos:</p>
-                    <ul class="text-sm text-blue-900 space-y-2">
-                        <li class="flex gap-2">🧘 <span>Aguarde ser chamado pelo painel.</span></li>
-                        <li class="flex gap-2">📱 <span>Mantenha o celular próximo.</span></li>
+                <h3 class="text-xl font-bold text-slate-800 mb-2">Triagem Finalizada</h3>
+                <p class="text-slate-500 mb-6">Seus dados foram enviados com segurança para o Dr. Dario.</p>
+                <div class="bg-blue-50 p-4 rounded-xl border border-blue-100 text-left text-sm text-blue-900">
+                    <p class="font-bold mb-2">Instruções:</p>
+                    <ul class="list-disc pl-4 space-y-1">
+                        <li>Aguarde a chamada pelo nome.</li>
+                        <li>Se sentir piora súbita, avise a recepção.</li>
                     </ul>
                 </div>
-                
-                <button onclick="location.reload()" class="mt-8 text-sm text-slate-400 underline hover:text-slate-600">Iniciar Novo Atendimento</button>
+                <button onclick="location.reload()" class="mt-8 text-sm text-slate-400 underline hover:text-slate-600">Novo Atendimento</button>
             </div>
             
-            <div id="content-doc" class="hidden animate-slide-in">
+            <div id="content-doc" class="hidden animate-slide-in bg-slate-100">
                 ${htmlMedico}
-                <div class="p-4 bg-slate-50 border-t flex gap-2">
-                    <button onclick="window.print()" class="flex-1 bg-slate-800 text-white py-3 rounded-lg font-bold shadow hover:bg-black transition">Imprimir PDF</button>
-                    <button onclick="navigator.clipboard.writeText(document.getElementById('content-doc').innerText).then(()=>alert('Copiado!'))" class="flex-1 bg-white border py-3 rounded-lg font-bold shadow-sm hover:bg-slate-50">Copiar</button>
+                <div class="p-4 bg-white border-t flex gap-2 sticky bottom-0">
+                    <button onclick="window.print()" class="flex-1 bg-slate-800 text-white py-3 rounded-lg font-bold shadow hover:bg-black transition">Imprimir / PDF</button>
+                    <button onclick="UI.copyToClipboard()" class="flex-1 bg-white border border-slate-300 py-3 rounded-lg font-bold shadow-sm hover:bg-slate-50 text-slate-700">Copiar Texto</button>
                 </div>
             </div>
         `;
         chatContainer.appendChild(div);
         
-        const t1 = div.querySelector('#tab-pat');
-        const t2 = div.querySelector('#tab-doc');
-        const c1 = div.querySelector('#content-pat');
-        const c2 = div.querySelector('#content-doc');
+        // Lógica de Abas
+        const t1 = div.querySelector('#tab-pat'); const t2 = div.querySelector('#tab-doc');
+        const c1 = div.querySelector('#content-pat'); const c2 = div.querySelector('#content-doc');
         
-        t2.onclick = () => { c1.classList.add('hidden'); c2.classList.remove('hidden'); t2.classList.add('text-blue-600','border-blue-600','bg-white','text-slate-400'); t1.classList.remove('text-blue-600','border-blue-600','bg-white'); t1.classList.add('text-slate-400'); };
-        t1.onclick = () => { c2.classList.add('hidden'); c1.classList.remove('hidden'); t1.classList.add('text-blue-600','border-blue-600','bg-white'); t2.classList.remove('text-blue-600','border-blue-600','bg-white'); t2.classList.add('text-slate-400'); };
+        t2.onclick = () => { c1.classList.add('hidden'); c2.classList.remove('hidden'); t2.classList.replace('text-slate-400', 'text-blue-600'); t2.classList.add('border-blue-600', 'bg-white'); t1.classList.replace('text-blue-600', 'text-slate-400'); t1.classList.remove('border-blue-600', 'bg-white'); };
+        t1.onclick = () => { c2.classList.add('hidden'); c1.classList.remove('hidden'); t1.classList.replace('text-slate-400', 'text-blue-600'); t1.classList.add('border-blue-600', 'bg-white'); t2.classList.replace('text-blue-600', 'text-slate-400'); t2.classList.remove('border-blue-600', 'bg-white'); };
         
         UI.scrollToBottom();
     },
 
+    copyToClipboard() {
+        // Pega apenas o texto visível dentro da área de anamnese para copiar limpo
+        const textHDA = document.querySelector('.bg-slate-50.whitespace-pre-wrap')?.innerText || "";
+        const patientName = document.getElementById('inp-name')?.value || "Paciente";
+        const fullText = `PACIENTE: ${patientName}\n\n${textHDA}`;
+        
+        navigator.clipboard.writeText(fullText).then(() => alert("HDA copiada para a área de transferência!"));
+    },
+
+    // Funções auxiliares (Bubbles, Loading, Format)
     addOttoBubble(text) { 
-        const div = document.createElement('div');
-        div.className = "flex gap-3 fade-in mb-4";
+        const div = document.createElement('div'); div.className = "flex gap-3 fade-in mb-4";
         div.innerHTML = `<div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-lg border border-blue-50 shadow-sm shrink-0">🤖</div><div class="bg-white p-3 rounded-2xl rounded-tl-none border border-slate-100 text-sm text-slate-700 shadow-sm leading-relaxed max-w-[85%]">${text}</div>`;
-        chatContainer.appendChild(div);
-        this.scrollToBottom();
+        chatContainer.appendChild(div); this.scrollToBottom();
     },
-
     addUserBubble(text) { 
-        const div = document.createElement('div');
-        div.className = "flex gap-3 flex-row-reverse fade-in mb-4";
+        const div = document.createElement('div'); div.className = "flex gap-3 flex-row-reverse fade-in mb-4";
         div.innerHTML = `<div class="bg-blue-600 text-white py-2 px-4 rounded-2xl rounded-tr-none text-sm shadow-md max-w-[85%]">${text}</div>`;
-        chatContainer.appendChild(div);
-        this.scrollToBottom();
+        chatContainer.appendChild(div); this.scrollToBottom();
     },
-
     showLoading() {
-        const div = document.createElement('div');
-        div.id = "ui-loading";
-        div.className = "flex gap-3 fade-in mb-4";
+        const div = document.createElement('div'); div.id = "ui-loading"; div.className = "flex gap-3 fade-in mb-4";
         div.innerHTML = `<div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">🤖</div><div class="bg-slate-50 p-3 rounded-2xl rounded-tl-none text-slate-400 text-xs flex items-center gap-1"><span class="animate-bounce">●</span><span class="animate-bounce delay-75">●</span><span class="animate-bounce delay-150">●</span></div>`;
-        chatContainer.appendChild(div);
-        this.scrollToBottom();
+        chatContainer.appendChild(div); this.scrollToBottom();
     },
-
     hideLoading() { const el = document.getElementById("ui-loading"); if(el) el.remove(); },
-    
     scrollToBottom() { chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' }); },
-    
     formatText(str) { return str ? str.replace(/_/g, " ").replace(/^\w/, c => c.toUpperCase()) : ""; }
 };

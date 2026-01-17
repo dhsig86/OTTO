@@ -63,47 +63,50 @@ def traduzir_queixa_com_ia(entrada: EntradaTexto):
     if not client.api_key:
         return {"erro": "Sem chave API", "regioes": []}
 
-    # Extrai listas válidas do JSON para 'guiar' a IA
-    dominios_validos = list(HEART.get('dominios', {}).keys())
-    sintomas_validos = []
-    for d in dominios_validos:
-        sintomas_validos.extend(HEART['dominios'][d].get('sintomas_gatilho', []))
+    # Carrega contexto do JSON
+    dominios = HEART.get('dominios', {})
+    lista_sintomas = []
+    for d in dominios.values():
+        lista_sintomas.extend(d.get('sintomas_gatilho', []))
 
     prompt = f"""
-    Atue como triagem médica Otorrino.
-    SINTOMAS VÁLIDOS NO SISTEMA: {json.dumps(sintomas_validos)}
-    DOMÍNIOS: {json.dumps(dominios_validos)}
+    Aja como um Triageiro Médico Sênior (Otorrinolaringologia).
+    
+    CONHECIMENTO (IDs VÁLIDOS NO SISTEMA):
+    {json.dumps(lista_sintomas)}
     
     PACIENTE DISSE: "{entrada.queixa_livre}"
     
     TAREFA:
-    1. Identifique a Região (ouvido, nariz, garganta).
-    2. Identifique quais 'sintomas_gatilho' da lista acima correspondem à queixa. Use EXATAMENTE a ID da lista.
-    3. Se o paciente já deu detalhes (ex: "dói nota 8", "piora ao deitar"), extraia para 'detalhes_ja_informados'.
-    
-    RESPONDA APENAS JSON:
+    1. Classifique a Região: [ouvido, nariz, garganta, pescoco].
+    2. Mapeie a queixa para os IDs VÁLIDOS acima. 
+       - Ex: "Tudo rodando" -> "tontura"
+       - Ex: "Nariz trancado" -> "nariz_entupido"
+       - Ex: "Dor para engolir" -> "dor_garganta"
+    3. Extraia qualificadores (intensidade, tempo, gatilhos) se houver.
+
+    SAÍDA JSON OBRIGATÓRIA:
     {{
         "regioes": ["ouvido"],
-        "sintomas_detectados": ["dor_ouvido"],
-        "detalhes_ja_informados": {{"dor_ouvido": {{"intensidade": "8", "piora_com": "Ao deitar"}}}}
+        "sintomas_detectados": ["tontura"], 
+        "detalhes_ja_informados": {{"tontura": {{"tipo": "Vertigem Rotatória", "intensidade": "Forte"}}}}
     }}
     """
+    
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "Responda apenas JSON válido."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.0
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1 # Baixa temperatura para precisão
         )
         content = response.choices[0].message.content
         content = content.replace("```json", "").replace("```", "").strip()
         return json.loads(content)
     except Exception as e:
         print(f"Erro OpenAI: {e}")
-        return {"erro": str(e), "regioes": []}
-
+        return {"erro": str(e), "regioes": []
+}
+    
 @app.post("/api/brain/process")
 def processar_triagem(dados: DadosPaciente):
     """

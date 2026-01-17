@@ -5,18 +5,35 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 
-# --- BIBLIOTECA DA OPENAI (Instalar: pip install openai) ---
+# Biblioteca da OpenAI
 from openai import OpenAI
 
-app = FastAPI(title="OTTO Brain - AI Powered", version="4.0.0")
+app = FastAPI(title="OTTO Brain v4.2 - Production", version="4.2.0")
 
-# --- CONFIGURAÇÃO DA CHAVE (Pegar do ambiente do Heroku para segurança) ---
-# No Heroku, você vai configurar: KEY_OPENAI = "sk-..."
-client = OpenAI(api_key=os.environ.get("KEY_OPENAI")) 
-
-# Configuração CORS
+# --- 1. CONFIGURAÇÃO DE SEGURANÇA (CORS) ---
 origins = ["*"]
-app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- 2. CONFIGURAÇÃO DA IA ---
+# Se não houver chave, o sistema avisa mas não trava (fallback manual)
+client = OpenAI(api_key=os.environ.get("KEY_OPENAI"))
+
+# --- 3. CARREGAMENTO DO HEART (JSON) ---
+HEART = {}
+try:
+    path = os.path.join(os.path.dirname(__file__), "data", "patologias.json")
+    with open(path, "r", encoding="utf-8") as f:
+        HEART = json.load(f)
+    print(">>> HEART carregado com sucesso!")
+except Exception as e:
+    print(f">>> ERRO CRÍTICO JSON: {e}")
+    HEART = {"dominios": {}, "anamnese_geral": {"sintomas_sistemicos": []}}
 
 # --- MODELOS DE DADOS ---
 class EntradaTexto(BaseModel):
@@ -33,63 +50,141 @@ class DadosPaciente(BaseModel):
     sinais_alarme: List[str] = []
     historico: str = ""
 
-# --- CARREGA O HEART (JSON) ---
-HEART = {}
-try:
-    path = os.path.join(os.path.dirname(__file__), "data", "patologias.json")
-    with open(path, "r", encoding="utf-8") as f:
-        HEART = json.load(f)
-except Exception as e:
-    print(f"Erro ao carregar JSON: {e}")
+# ==========================================
+#              ROTAS DA API
+# ==========================================
 
-# --- NOVA ROTA: O TRADUTOR INTELIGENTE ---
+@app.get("/api/heart/knowledge")
+def get_knowledge():
+    return HEART
+
 @app.post("/api/brain/transcribe")
 def traduzir_queixa_com_ia(entrada: EntradaTexto):
-    """
-    Recebe texto livre ("Dói meu ouvido quando deito")
-    Devolve JSON estruturado ("dor_ouvido", "piora_com:Ao deitar")
-    """
     if not client.api_key:
-        return {"erro": "Sem chave de API configurada. Usando modo manual."}
+        return {"erro": "Sem chave API", "regioes": []}
+
+    # Extrai listas válidas do JSON para 'guiar' a IA
+    dominios_validos = list(HEART.get('dominios', {}).keys())
+    sintomas_validos = []
+    for d in dominios_validos:
+        sintomas_validos.extend(HEART['dominios'][d].get('sintomas_gatilho', []))
 
     prompt = f"""
-    Você é um assistente médico de triagem (Otorrino).
-    
-    CONTEXTO MÉDICO (SINTOMAS VÁLIDOS):
-    {json.dumps(HEART.get('dominios', {}).keys())}
+    Atue como triagem médica Otorrino.
+    SINTOMAS VÁLIDOS NO SISTEMA: {json.dumps(sintomas_validos)}
+    DOMÍNIOS: {json.dumps(dominios_validos)}
     
     PACIENTE DISSE: "{entrada.queixa_livre}"
     
     TAREFA:
-    1. Identifique a Região Principal (ouvido, nariz, garganta).
-    2. Identifique os Sintomas Gatilho exatos do nosso protocolo.
-    3. Extraia detalhes (qualificadores) se o paciente já falou.
+    1. Identifique a Região (ouvido, nariz, garganta).
+    2. Identifique quais 'sintomas_gatilho' da lista acima correspondem à queixa. Use EXATAMENTE a ID da lista.
+    3. Se o paciente já deu detalhes (ex: "dói nota 8", "piora ao deitar"), extraia para 'detalhes_ja_informados'.
     
-    RESPONDA APENAS UM JSON NESTE FORMATO:
+    RESPONDA APENAS JSON:
     {{
         "regioes": ["ouvido"],
         "sintomas_detectados": ["dor_ouvido"],
-        "detalhes_ja_informados": {{"dor_ouvido": {{"piora_com": "Ao deitar"}}}}
+        "detalhes_ja_informados": {{"dor_ouvido": {{"intensidade": "8", "piora_com": "Ao deitar"}}}}
     }}
     """
-
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini", # O modelo barato e inteligente
-            messages=[{"role": "system", "content": "Responda apenas JSON."}, 
-                      {"role": "user", "content": prompt}],
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Responda apenas JSON válido."},
+                {"role": "user", "content": prompt}
+            ],
             temperature=0.0
         )
         content = response.choices[0].message.content
+        content = content.replace("```json", "").replace("```", "").strip()
         return json.loads(content)
     except Exception as e:
         print(f"Erro OpenAI: {e}")
-        return {"erro": "Falha na IA", "raw": str(e)}
+        return {"erro": str(e), "regioes": []}
 
-# --- ROTA DE PROCESSAMENTO CLÍNICO (Igual à anterior, mas mantida aqui) ---
 @app.post("/api/brain/process")
 def processar_triagem(dados: DadosPaciente):
-    # ... (Mantenha a lógica de cálculo de score que fizemos no prompt anterior)
-    # Vou resumir aqui para não ficar gigante, mas você usa o mesmo código do BRAIN 3.0
-    # Se precisar que eu repita o código de cálculo, me avise.
-    return {"status": "ok", "hipoteses": []} # Placeholder
+    """
+    Esta é a função que estava vazia no seu arquivo anterior.
+    Aqui restauramos a lógica de cálculo de pontuação.
+    """
+    hipoteses = []
+    
+    # Normaliza inputs para minúsculo para evitar erros de digitação
+    sintomas_paciente = set([s.lower() for s in dados.sintomas_especificos])
+    discriminantes_paciente = set([d.lower() for d in dados.respostas_discriminantes])
+    
+    # Varre as regiões afetadas
+    for regiao in dados.regioes:
+        dominio = HEART.get("dominios", {}).get(regiao)
+        if not dominio: continue
+        
+        for doenca in dominio.get("patologias", []):
+            matches = 0
+            evidencias = []
+            
+            # 1. Match de Sintomas e Qualificadores
+            for sinal in doenca.get("sinais_chave", []):
+                # Caso complexo: "coriza:Amarela"
+                if ":" in sinal:
+                    chave_sintoma, valor_esperado = sinal.split(":")
+                    chave_sintoma = chave_sintoma.lower()
+                    
+                    # Verifica se temos qualificadores para este sintoma
+                    respostas_user = dados.respostas_qualificadores.get(chave_sintoma)
+                    
+                    if respostas_user:
+                        # Varre todas as respostas desse sintoma (intensidade, tipo, etc)
+                        # Se ALGUMA delas contiver o valor esperado
+                        if any(str(v).lower() == valor_esperado.lower() for v in respostas_user.values()):
+                            matches += 1.5
+                            evidencias.append(f"{chave_sintoma} ({valor_esperado})")
+                
+                # Caso simples: "dor_ouvido"
+                elif sinal.lower() in sintomas_paciente:
+                    matches += 1.0
+                    evidencias.append(sinal)
+            
+            # Se não bateu nenhum sintoma principal, ignora a doença
+            if matches == 0: continue
+
+            # Score Base (Proporção de sintomas encontrados)
+            total_sinais = len(doenca["sinais_chave"])
+            if total_sinais == 0: total_sinais = 1
+            score = (matches / total_sinais) * 50
+            
+            # 2. Fatores Discriminantes (Multiplicadores)
+            for fator, peso in doenca.get("fatores_peso", {}).items():
+                if fator.lower() in discriminantes_paciente:
+                    score *= peso
+                    evidencias.append(f"Fator: {fator}")
+
+            # 3. Negativos Pertinentes (Bônus por não ter)
+            for neg in doenca.get("negativos_pertinentes", []):
+                sneg = neg.replace("sem_", "").lower()
+                # Se paciente não marcou esse sintoma E não marcou nos gerais
+                if sneg not in sintomas_paciente and sneg not in [sg.lower() for sg in dados.sintomas_gerais]:
+                    score += 5
+            
+            # Trava de segurança 99%
+            prob = min(round(score), 99)
+            
+            # Corte de exibição (apenas > 20%)
+            if prob > 20:
+                hipoteses.append({
+                    "doenca": doenca["nome"],
+                    "probabilidade": prob,
+                    "baseado_em": evidencias,
+                    "condutas": doenca.get("condutas", [])
+                })
+
+    # Ordena por probabilidade (maior primeiro)
+    hipoteses.sort(key=lambda x: x["probabilidade"], reverse=True)
+    
+    return {
+        "status": "calculado",
+        "paciente": dados.idade,
+        "hipoteses": hipoteses
+    }

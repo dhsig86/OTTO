@@ -77,62 +77,63 @@ export const Logic = {
 
     // --- FUNÇÃO ATUALIZADA COM IA ---
     async flowQP() {
-        UI.addOttoBubble("Em poucas palavras, qual o motivo da sua visita hoje?");
-        UI.renderInput(UI.templates.textInput("Ex: Dor de ouvido forte desde ontem...", false));
-        
-        UI.bind('btn-next', async () => {
-            const txt = document.getElementById('inp-text').value;
-            if(!txt) return;
+            UI.addOttoBubble("Em poucas palavras, qual o motivo da sua visita hoje?");
+            UI.renderInput(UI.templates.textInput("Ex: Dor de ouvido forte desde ontem...", false));
             
-            // Salva o texto original
-            State.update('qp_real', txt);
-            UI.addUserBubble(txt);
-
-            // 1. Mostra Loading enquanto a IA pensa
-            UI.showLoading(); 
-            
-            // 2. Chama a API (GPT-4o-mini)
-            const analiseIA = await API.transcreverQueixa(txt);
-            
-            UI.hideLoading();
-
-            // 3. Verifica se a IA entendeu algo útil
-            if (analiseIA && analiseIA.regioes && analiseIA.regioes.length > 0) {
-                console.log("IA Detectou:", analiseIA);
+            UI.bind('btn-next', async () => {
+                const txt = document.getElementById('inp-text').value;
+                if(!txt) return;
                 
-                // Preenche Regiões
-                State.update('regioesAfetadas', analiseIA.regioes);
+                State.update('qp_real', txt);
+                UI.addUserBubble(txt);
+
+                UI.showLoading(); 
                 
-                // Preenche Sintomas (se houver)
-                if(analiseIA.sintomas_detectados) {
-                    State.update('detalhesSintomas', analiseIA.sintomas_detectados);
+                // Chama a IA
+                const analiseIA = await API.transcreverQueixa(txt);
+                
+                UI.hideLoading();
+
+                // Lógica de Decisão: Seguir IA ou Manual?
+                if (analiseIA && 
+                    analiseIA.regioes && 
+                    analiseIA.regioes.length > 0 &&
+                    // Verifica se a região devolvida existe mesmo no nosso JSON
+                    Heart.dominios[analiseIA.regioes[0]]
+                ) {
+                    
+                    console.log("✅ IA Sucesso:", analiseIA);
+                    
+                    // Salva o que a IA achou
+                    State.update('regioesAfetadas', analiseIA.regioes);
+                    
+                    if(analiseIA.sintomas_detectados && analiseIA.sintomas_detectados.length > 0) {
+                        State.update('detalhesSintomas', analiseIA.sintomas_detectados);
+                    }
+                    
+                    if(analiseIA.detalhes_ja_informados) {
+                        Object.keys(analiseIA.detalhes_ja_informados).forEach(sintoma => {
+                            const detalhes = analiseIA.detalhes_ja_informados[sintoma];
+                            Object.keys(detalhes).forEach(attr => {
+                                State.setQualificador(sintoma, attr, detalhes[attr]);
+                            });
+                        });
+                    }
+
+                    UI.addOttoBubble(`Entendi. Parece ser um caso de ${Heart.dominios[analiseIA.regioes[0]].nome_exibicao}.`);
+                    
+                    // Avança pulando as perguntas óbvias
+                    State.setEtapa(6); 
+                    this.nextStep(); 
+                    
+                } else {
+                    console.warn("⚠️ IA não detectou região válida. Seguindo manual.");
+                    // Se a IA não tiver certeza, segue o fluxo normal (pergunta sintomas gerais, região...)
+                    this.nextStep();
                 }
-                
-                // Preenche Detalhes (se houver)
-                if(analiseIA.detalhes_ja_informados) {
-                     // Ex: { "dor_ouvido": { "piora_com": "Ao deitar" } }
-                     Object.keys(analiseIA.detalhes_ja_informados).forEach(sintoma => {
-                         const detalhes = analiseIA.detalhes_ja_informados[sintoma];
-                         Object.keys(detalhes).forEach(attr => {
-                             State.setQualificador(sintoma, attr, detalhes[attr]);
-                         });
-                     });
-                }
-
-                UI.addOttoBubble(`Entendi. Parece ser algo em: ${analiseIA.regioes.join(", ")}.`);
-                
-                // PULO MÁGICO: Vai direto para etapa 7 (Qualificadores)
-                // Pulamos: Geral(4), Regiões(5), Sintomas(6)
-                State.setEtapa(6); // Setamos 6 para que o nextStep() some +1 e vá para 7
-                this.nextStep(); 
-                
-            } else {
-                // Se a IA falhar ou não entender, segue o fluxo normal manual
-                this.nextStep();
-            }
-        });
-        this.bindBack();
-    },
+            });
+            this.bindBack();
+        },
 
     flowGeneral() {
         UI.addOttoBubble("Sintomas gerais?");

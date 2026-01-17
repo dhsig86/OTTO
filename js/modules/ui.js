@@ -170,7 +170,7 @@ export const UI = {
         `;
         
         // Renderiza sintomas com seus qualificadores
-        dados.sintomas_especificos.forEach(s => {
+            dados.detalhesSintomas.forEach(s => {
             let texto = `<strong>${UI.formatText(s)}</strong>`;
             const qualifs = dados.respostas_qualificadores[s];
             if(qualifs) {

@@ -1,5 +1,5 @@
-// MÓDULO DE LÓGICA (INTERVIEWER + LOCAL BRAIN) v4.0
-// Inclui Integração com IA (GPT-4o-mini) na Queixa Principal
+// MÓDULO DE LÓGICA (INTERVIEWER + LOCAL BRAIN) v4.1 (FIX LOOP)
+// Correção: Renomeado 'cfg' para 'config' para compatibilidade com UI
 
 import { State } from './state.js';
 import { API } from './api.js';
@@ -26,7 +26,7 @@ export const Logic = {
         switch (step) {
             case 1: this.flowConsent(); break;
             case 2: this.flowDemographics(); break;
-            case 3: this.flowQP(); break;      // <--- AQUI ESTÁ A MÁGICA DA IA
+            case 3: this.flowQP(); break;
             case 4: this.flowGeneral(); break;
             case 5: this.flowRegions(); break;
             case 6: this.flowSymptoms(); break;
@@ -75,65 +75,50 @@ export const Logic = {
         this.bindBack();
     },
 
-    // --- FUNÇÃO ATUALIZADA COM IA ---
     async flowQP() {
-            UI.addOttoBubble("Em poucas palavras, qual o motivo da sua visita hoje?");
-            UI.renderInput(UI.templates.textInput("Ex: Dor de ouvido forte desde ontem...", false));
+        UI.addOttoBubble("Em poucas palavras, qual o motivo da sua visita hoje?");
+        UI.renderInput(UI.templates.textInput("Ex: Dor de ouvido forte desde ontem...", false));
+        
+        UI.bind('btn-next', async () => {
+            const txt = document.getElementById('inp-text').value;
+            if(!txt) return;
             
-            UI.bind('btn-next', async () => {
-                const txt = document.getElementById('inp-text').value;
-                if(!txt) return;
-                
-                State.update('qp_real', txt);
-                UI.addUserBubble(txt);
+            State.update('qp_real', txt);
+            UI.addUserBubble(txt);
 
-                UI.showLoading(); 
-                
-                // Chama a IA
-                const analiseIA = await API.transcreverQueixa(txt);
-                
-                UI.hideLoading();
+            UI.showLoading(); 
+            const analiseIA = await API.transcreverQueixa(txt);
+            UI.hideLoading();
 
-                // Lógica de Decisão: Seguir IA ou Manual?
-                if (analiseIA && 
-                    analiseIA.regioes && 
-                    analiseIA.regioes.length > 0 &&
-                    // Verifica se a região devolvida existe mesmo no nosso JSON
-                    Heart.dominios[analiseIA.regioes[0]]
-                ) {
-                    
-                    console.log("✅ IA Sucesso:", analiseIA);
-                    
-                    // Salva o que a IA achou
-                    State.update('regioesAfetadas', analiseIA.regioes);
-                    
-                    if(analiseIA.sintomas_detectados && analiseIA.sintomas_detectados.length > 0) {
-                        State.update('detalhesSintomas', analiseIA.sintomas_detectados);
-                    }
-                    
-                    if(analiseIA.detalhes_ja_informados) {
-                        Object.keys(analiseIA.detalhes_ja_informados).forEach(sintoma => {
-                            const detalhes = analiseIA.detalhes_ja_informados[sintoma];
-                            Object.keys(detalhes).forEach(attr => {
-                                State.setQualificador(sintoma, attr, detalhes[attr]);
-                            });
-                        });
-                    }
-
-                    UI.addOttoBubble(`Entendi. Parece ser um caso de ${Heart.dominios[analiseIA.regioes[0]].nome_exibicao}.`);
-                    
-                    // Avança pulando as perguntas óbvias
-                    State.setEtapa(6); 
-                    this.nextStep(); 
-                    
-                } else {
-                    console.warn("⚠️ IA não detectou região válida. Seguindo manual.");
-                    // Se a IA não tiver certeza, segue o fluxo normal (pergunta sintomas gerais, região...)
-                    this.nextStep();
+            if (analiseIA && analiseIA.regioes && analiseIA.regioes.length > 0 && Heart.dominios[analiseIA.regioes[0]]) {
+                console.log("✅ IA Sucesso:", analiseIA);
+                
+                State.update('regioesAfetadas', analiseIA.regioes);
+                
+                if(analiseIA.sintomas_detectados && analiseIA.sintomas_detectados.length > 0) {
+                    State.update('detalhesSintomas', analiseIA.sintomas_detectados);
                 }
-            });
-            this.bindBack();
-        },
+                
+                if(analiseIA.detalhes_ja_informados) {
+                     Object.keys(analiseIA.detalhes_ja_informados).forEach(sintoma => {
+                         const detalhes = analiseIA.detalhes_ja_informados[sintoma];
+                         Object.keys(detalhes).forEach(attr => {
+                             State.setQualificador(sintoma, attr, detalhes[attr]);
+                         });
+                     });
+                }
+
+                UI.addOttoBubble(`Entendi. Parece ser um caso de ${Heart.dominios[analiseIA.regioes[0]].nome_exibicao}.`);
+                State.setEtapa(6); 
+                this.nextStep(); 
+                
+            } else {
+                console.warn("⚠️ IA não detectou região válida. Seguindo manual.");
+                this.nextStep();
+            }
+        });
+        this.bindBack();
+    },
 
     flowGeneral() {
         UI.addOttoBubble("Sintomas gerais?");
@@ -167,6 +152,7 @@ export const Logic = {
         this.bindBack();
     },
 
+    // --- CORREÇÃO DO LOOP AQUI ---
     flowQualifiers() {
         const sintomas = State.get().detalhesSintomas;
         const regioes = State.get().regioesAfetadas;
@@ -176,7 +162,8 @@ export const Logic = {
             const dom = Heart.dominios[r];
             if(!dom.qualificadores) return;
             sintomas.forEach(s => {
-                if(dom.qualificadores[s]) queue.push({ sId: s, cfg: dom.qualificadores[s] });
+                // Aqui estava o erro: antes estava 'cfg', agora é 'config'
+                if(dom.qualificadores[s]) queue.push({ sId: s, config: dom.qualificadores[s] });
             });
         });
 
@@ -187,7 +174,8 @@ export const Logic = {
         
         UI.bind('btn-next', () => {
             queue.forEach(q => {
-                q.cfg.atributos.forEach(attr => {
+                // Aqui também mudamos para 'config'
+                q.config.atributos.forEach(attr => {
                     const el = document.getElementById(`qualif-${q.sId}-${attr.id}`);
                     if(el) State.setQualificador(q.sId, attr.id, el.value);
                 });
@@ -249,7 +237,7 @@ export const Logic = {
     },
 
     flowAnythingElse() {
-        UI.addOttoBubble("Algo mais?");
+        UI.addOttoBubble("Algo mais? (Alergias, observações...)");
         UI.renderInput(UI.templates.textInput("Obs...", true));
         UI.bind('btn-finish', () => {
             const txt = document.getElementById('inp-text').value;
@@ -273,7 +261,8 @@ export const Logic = {
             respostas_discriminantes: d.respostasDiscriminantes,
             regioes: d.regioesAfetadas,
             sintomas_gerais: d.sintomasGerais,
-            sinais_alarme: d.sinaisAlarme
+            sinais_alarme: d.sinaisAlarme,
+            historico: d.algoMais // Passando Algo Mais para o Brain
         };
 
         try {
@@ -309,7 +298,7 @@ export const Logic = {
                     if(sinal.includes(":")) {
                         const [key, val] = sinal.split(":");
                         const resposta = dados.respostasQualificadores[key];
-                        if(resposta && Object.values(resposta).includes(val)) {
+                        if(resposta && Object.values(resposta).some(v => String(v).toLowerCase() === String(val).toLowerCase())) {
                             matches += 1.5;
                             evidencias.push(`${key} (${val})`);
                         }
@@ -323,7 +312,8 @@ export const Logic = {
 
                 if(matches === 0) return;
 
-                score = (matches / doenca.sinais_chave.length) * 50;
+                const total = doenca.sinais_chave.length || 1;
+                score = (matches / total) * 50;
 
                 if(doenca.fatores_peso) {
                     Object.entries(doenca.fatores_peso).forEach(([fator, peso]) => {

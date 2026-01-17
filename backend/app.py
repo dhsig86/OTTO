@@ -4,13 +4,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
-
-# Biblioteca da OpenAI
 from openai import OpenAI
 
-app = FastAPI(title="OTTO Brain v4.2 - Production", version="4.2.0")
+app = FastAPI(title="OTTO Brain v4.3 - Robust", version="4.3.0")
 
-# --- 1. CONFIGURAÇÃO DE SEGURANÇA (CORS) ---
+# --- CONFIGURAÇÃO DE SEGURANÇA (CORS) ---
 origins = ["*"]
 app.add_middleware(
     CORSMiddleware,
@@ -20,11 +18,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- 2. CONFIGURAÇÃO DA IA ---
-# Se não houver chave, o sistema avisa mas não trava (fallback manual)
-client = OpenAI(api_key=os.environ.get("KEY_OPENAI"))
+# --- CONFIGURAÇÃO DA IA (SEGURA) ---
+# Tenta pegar a chave. Se não tiver, define client como None.
+api_key = os.environ.get("KEY_OPENAI")
+client = OpenAI(api_key=api_key) if api_key else None
 
-# --- 3. CARREGAMENTO DO HEART (JSON) ---
+if not client:
+    print(">>> AVISO: Chave OpenAI não encontrada. Modo IA desativado.")
+
+# --- CARREGAMENTO DO HEART (JSON) ---
 HEART = {}
 try:
     path = os.path.join(os.path.dirname(__file__), "data", "patologias.json")
@@ -50,9 +52,7 @@ class DadosPaciente(BaseModel):
     sinais_alarme: List[str] = []
     historico: str = ""
 
-# ==========================================
-#              ROTAS DA API
-# ==========================================
+# --- ROTAS ---
 
 @app.get("/api/heart/knowledge")
 def get_knowledge():
@@ -60,66 +60,49 @@ def get_knowledge():
 
 @app.post("/api/brain/transcribe")
 def traduzir_queixa_com_ia(entrada: EntradaTexto):
-    if not client.api_key:
-        return {"erro": "Sem chave API", "regioes": []}
+    # Se o cliente não foi iniciado (falta de chave), retorna erro tratado
+    if not client:
+        return {"erro": "Servidor sem chave API configurada", "regioes": []}
 
-    # Carrega contexto do JSON
-    dominios = HEART.get('dominios', {})
-    lista_sintomas = []
-    for d in dominios.values():
-        lista_sintomas.extend(d.get('sintomas_gatilho', []))
+    dominios_validos = list(HEART.get('dominios', {}).keys())
+    sintomas_validos = []
+    for d in dominios_validos:
+        sintomas_validos.extend(HEART['dominios'][d].get('sintomas_gatilho', []))
 
     prompt = f"""
-    Aja como um Triageiro Médico Sênior (Otorrinolaringologia).
+    Aja como Triageiro Médico (ORL).
+    CONTEXTO: {json.dumps(sintomas_validos)}
+    QUEIXA: "{entrada.queixa_livre}"
     
-    CONHECIMENTO (IDs VÁLIDOS NO SISTEMA):
-    {json.dumps(lista_sintomas)}
+    1. Região: [ouvido, nariz, garganta].
+    2. Sintomas (IDs exatos da lista): ex: "dor_ouvido".
+    3. Detalhes: Se houver (ex: "intensidade": "8").
     
-    PACIENTE DISSE: "{entrada.queixa_livre}"
-    
-    TAREFA:
-    1. Classifique a Região: [ouvido, nariz, garganta, pescoco].
-    2. Mapeie a queixa para os IDs VÁLIDOS acima. 
-       - Ex: "Tudo rodando" -> "tontura"
-       - Ex: "Nariz trancado" -> "nariz_entupido"
-       - Ex: "Dor para engolir" -> "dor_garganta"
-    3. Extraia qualificadores (intensidade, tempo, gatilhos) se houver.
-
-    SAÍDA JSON OBRIGATÓRIA:
+    JSON OBRIGATÓRIO:
     {{
         "regioes": ["ouvido"],
-        "sintomas_detectados": ["tontura"], 
-        "detalhes_ja_informados": {{"tontura": {{"tipo": "Vertigem Rotatória", "intensidade": "Forte"}}}}
+        "sintomas_detectados": ["dor_ouvido"],
+        "detalhes_ja_informados": {{"dor_ouvido": {{"intensidade": "8"}}}}
     }}
     """
-    
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.1 # Baixa temperatura para precisão
+            temperature=0.0
         )
-        content = response.choices[0].message.content
-        content = content.replace("```json", "").replace("```", "").strip()
+        content = response.choices[0].message.content.replace("```json", "").replace("```", "").strip()
         return json.loads(content)
     except Exception as e:
         print(f"Erro OpenAI: {e}")
-        return {"erro": str(e), "regioes": []
-}
-    
+        return {"erro": str(e), "regioes": []}
+
 @app.post("/api/brain/process")
 def processar_triagem(dados: DadosPaciente):
-    """
-    Esta é a função que estava vazia no seu arquivo anterior.
-    Aqui restauramos a lógica de cálculo de pontuação.
-    """
     hipoteses = []
-    
-    # Normaliza inputs para minúsculo para evitar erros de digitação
     sintomas_paciente = set([s.lower() for s in dados.sintomas_especificos])
     discriminantes_paciente = set([d.lower() for d in dados.respostas_discriminantes])
     
-    # Varre as regiões afetadas
     for regiao in dados.regioes:
         dominio = HEART.get("dominios", {}).get(regiao)
         if not dominio: continue
@@ -128,53 +111,32 @@ def processar_triagem(dados: DadosPaciente):
             matches = 0
             evidencias = []
             
-            # 1. Match de Sintomas e Qualificadores
             for sinal in doenca.get("sinais_chave", []):
-                # Caso complexo: "coriza:Amarela"
                 if ":" in sinal:
-                    chave_sintoma, valor_esperado = sinal.split(":")
-                    chave_sintoma = chave_sintoma.lower()
-                    
-                    # Verifica se temos qualificadores para este sintoma
-                    respostas_user = dados.respostas_qualificadores.get(chave_sintoma)
-                    
-                    if respostas_user:
-                        # Varre todas as respostas desse sintoma (intensidade, tipo, etc)
-                        # Se ALGUMA delas contiver o valor esperado
-                        if any(str(v).lower() == valor_esperado.lower() for v in respostas_user.values()):
-                            matches += 1.5
-                            evidencias.append(f"{chave_sintoma} ({valor_esperado})")
-                
-                # Caso simples: "dor_ouvido"
+                    chave, valor = sinal.split(":")
+                    resp = dados.respostas_qualificadores.get(chave.lower(), {})
+                    if any(str(v).lower() == valor.lower() for v in resp.values()):
+                        matches += 1.5
+                        evidencias.append(f"{chave} ({valor})")
                 elif sinal.lower() in sintomas_paciente:
                     matches += 1.0
                     evidencias.append(sinal)
             
-            # Se não bateu nenhum sintoma principal, ignora a doença
             if matches == 0: continue
 
-            # Score Base (Proporção de sintomas encontrados)
-            total_sinais = len(doenca["sinais_chave"])
-            if total_sinais == 0: total_sinais = 1
-            score = (matches / total_sinais) * 50
+            total = len(doenca["sinais_chave"]) or 1
+            score = (matches / total) * 50
             
-            # 2. Fatores Discriminantes (Multiplicadores)
             for fator, peso in doenca.get("fatores_peso", {}).items():
                 if fator.lower() in discriminantes_paciente:
                     score *= peso
                     evidencias.append(f"Fator: {fator}")
 
-            # 3. Negativos Pertinentes (Bônus por não ter)
             for neg in doenca.get("negativos_pertinentes", []):
-                sneg = neg.replace("sem_", "").lower()
-                # Se paciente não marcou esse sintoma E não marcou nos gerais
-                if sneg not in sintomas_paciente and sneg not in [sg.lower() for sg in dados.sintomas_gerais]:
+                if neg.replace("sem_", "").lower() not in sintomas_paciente:
                     score += 5
             
-            # Trava de segurança 99%
             prob = min(round(score), 99)
-            
-            # Corte de exibição (apenas > 20%)
             if prob > 20:
                 hipoteses.append({
                     "doenca": doenca["nome"],
@@ -183,11 +145,5 @@ def processar_triagem(dados: DadosPaciente):
                     "condutas": doenca.get("condutas", [])
                 })
 
-    # Ordena por probabilidade (maior primeiro)
     hipoteses.sort(key=lambda x: x["probabilidade"], reverse=True)
-    
-    return {
-        "status": "calculado",
-        "paciente": dados.idade,
-        "hipoteses": hipoteses
-    }
+    return {"status": "ok", "hipoteses": hipoteses}

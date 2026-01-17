@@ -1,5 +1,5 @@
-// MÓDULO DE LÓGICA (INTERVIEWER + LOCAL BRAIN) v3.1
-// Inclui motor de cálculo offline
+// MÓDULO DE LÓGICA (INTERVIEWER + LOCAL BRAIN) v4.0
+// Inclui Integração com IA (GPT-4o-mini) na Queixa Principal
 
 import { State } from './state.js';
 import { API } from './api.js';
@@ -26,7 +26,7 @@ export const Logic = {
         switch (step) {
             case 1: this.flowConsent(); break;
             case 2: this.flowDemographics(); break;
-            case 3: this.flowQP(); break;
+            case 3: this.flowQP(); break;      // <--- AQUI ESTÁ A MÁGICA DA IA
             case 4: this.flowGeneral(); break;
             case 5: this.flowRegions(); break;
             case 6: this.flowSymptoms(); break;
@@ -48,7 +48,7 @@ export const Logic = {
         } else alert("Início.");
     },
 
-    // --- FLUXOS (Mantidos iguais, resumidos aqui) ---
+    // --- FLUXOS ---
     
     flowConsent() {
         UI.addOttoBubble("Olá! Sou o assistente do Dr. Dario.");
@@ -75,13 +75,61 @@ export const Logic = {
         this.bindBack();
     },
 
-    flowQP() {
-        UI.addOttoBubble("Motivo da visita?");
-        UI.renderInput(UI.templates.textInput("Ex: Dor de ouvido...", false));
-        UI.bind('btn-next', () => {
+    // --- FUNÇÃO ATUALIZADA COM IA ---
+    async flowQP() {
+        UI.addOttoBubble("Em poucas palavras, qual o motivo da sua visita hoje?");
+        UI.renderInput(UI.templates.textInput("Ex: Dor de ouvido forte desde ontem...", false));
+        
+        UI.bind('btn-next', async () => {
             const txt = document.getElementById('inp-text').value;
-            if(txt) State.update('qp_real', txt);
-            this.nextStep();
+            if(!txt) return;
+            
+            // Salva o texto original
+            State.update('qp_real', txt);
+            UI.addUserBubble(txt);
+
+            // 1. Mostra Loading enquanto a IA pensa
+            UI.showLoading(); 
+            
+            // 2. Chama a API (GPT-4o-mini)
+            const analiseIA = await API.transcreverQueixa(txt);
+            
+            UI.hideLoading();
+
+            // 3. Verifica se a IA entendeu algo útil
+            if (analiseIA && analiseIA.regioes && analiseIA.regioes.length > 0) {
+                console.log("IA Detectou:", analiseIA);
+                
+                // Preenche Regiões
+                State.update('regioesAfetadas', analiseIA.regioes);
+                
+                // Preenche Sintomas (se houver)
+                if(analiseIA.sintomas_detectados) {
+                    State.update('detalhesSintomas', analiseIA.sintomas_detectados);
+                }
+                
+                // Preenche Detalhes (se houver)
+                if(analiseIA.detalhes_ja_informados) {
+                     // Ex: { "dor_ouvido": { "piora_com": "Ao deitar" } }
+                     Object.keys(analiseIA.detalhes_ja_informados).forEach(sintoma => {
+                         const detalhes = analiseIA.detalhes_ja_informados[sintoma];
+                         Object.keys(detalhes).forEach(attr => {
+                             State.setQualificador(sintoma, attr, detalhes[attr]);
+                         });
+                     });
+                }
+
+                UI.addOttoBubble(`Entendi. Parece ser algo em: ${analiseIA.regioes.join(", ")}.`);
+                
+                // PULO MÁGICO: Vai direto para etapa 7 (Qualificadores)
+                // Pulamos: Geral(4), Regiões(5), Sintomas(6)
+                State.setEtapa(6); // Setamos 6 para que o nextStep() some +1 e vá para 7
+                this.nextStep(); 
+                
+            } else {
+                // Se a IA falhar ou não entender, segue o fluxo normal manual
+                this.nextStep();
+            }
         });
         this.bindBack();
     },
@@ -134,7 +182,7 @@ export const Logic = {
         if (queue.length === 0) { this.nextStep(); return; }
 
         UI.addOttoBubble("Detalhes específicos:");
-        UI.renderInput(UI.templates.qualifiersForm(queue)); // Adapte templates.qualifiersForm para usar sId/cfg
+        UI.renderInput(UI.templates.qualifiersForm(queue));
         
         UI.bind('btn-next', () => {
             queue.forEach(q => {
@@ -216,9 +264,9 @@ export const Logic = {
         UI.showLoading();
         const d = State.get();
         
-        // Prepara Payload
         const payload = {
             idade: d.demografia.idade,
+            sexo: d.demografia.sexo,
             sintomas_especificos: d.detalhesSintomas,
             respostas_qualificadores: d.respostasQualificadores,
             respostas_discriminantes: d.respostasDiscriminantes,
@@ -228,28 +276,24 @@ export const Logic = {
         };
 
         try {
-            // Tenta API Python
             const res = await API.processarTriagem(payload);
             UI.hideLoading();
             UI.renderFinalReport(d, res.hipoteses || []);
         } catch (e) {
             console.warn("API Offline. Usando Motor Local.", e);
-            
-            // --- MOTOR LOCAL (FALLBACK) ---
-            // Executa a lógica do Python direto no navegador
             const hipotesesLocais = this.runLocalBrain(d);
-            
             UI.hideLoading();
-            UI.addOttoBubble("Modo Offline Ativado. Análise local concluída.");
+            UI.addOttoBubble("Modo Offline Ativado.");
             UI.renderFinalReport(d, hipotesesLocais);
         }
     },
 
-    // --- CÉREBRO LOCAL (Réplica do Logic Python) ---
     runLocalBrain(dados) {
         let hipoteses = [];
         const sintomasUser = new Set(dados.detalhesSintomas);
         const discrimUser = new Set(dados.respostasDiscriminantes);
+
+        if(!Heart || !Heart.dominios) return [];
 
         dados.regioesAfetadas.forEach(regiao => {
             const dominio = Heart.dominios[regiao];
@@ -260,23 +304,15 @@ export const Logic = {
                 let evidencias = [];
                 let score = 0;
 
-                // 1. Sintomas Chave
                 doenca.sinais_chave.forEach(sinal => {
-                    // Lógica de Qualificador (Ex: "coriza:Amarela")
                     if(sinal.includes(":")) {
                         const [key, val] = sinal.split(":");
-                        // Verifica se o usuário respondeu esse qualificador com esse valor
                         const resposta = dados.respostasQualificadores[key];
-                        if(resposta) {
-                            // resposta é um objeto {cor: "Amarela", ...}
-                            // Verifica se algum valor bate
-                            if(Object.values(resposta).includes(val)) {
-                                matches += 1.5;
-                                evidencias.append(`${key} (${val})`);
-                            }
+                        if(resposta && Object.values(resposta).includes(val)) {
+                            matches += 1.5;
+                            evidencias.push(`${key} (${val})`);
                         }
                     } else {
-                        // Sintoma simples
                         if(sintomasUser.has(sinal)) {
                             matches += 1.0;
                             evidencias.push(sinal);
@@ -284,11 +320,10 @@ export const Logic = {
                     }
                 });
 
-                if(matches === 0) return; // Pula se nada bater
+                if(matches === 0) return;
 
                 score = (matches / doenca.sinais_chave.length) * 50;
 
-                // 2. Discriminantes (Pesos)
                 if(doenca.fatores_peso) {
                     Object.entries(doenca.fatores_peso).forEach(([fator, peso]) => {
                         if(discrimUser.has(fator)) {
@@ -298,7 +333,6 @@ export const Logic = {
                     });
                 }
 
-                // 3. Negativos Pertinentes
                 if(doenca.negativos_pertinentes) {
                     doenca.negativos_pertinentes.forEach(neg => {
                         const sNeg = neg.replace("sem_", "");
@@ -309,7 +343,6 @@ export const Logic = {
                 }
 
                 let prob = Math.min(Math.round(score), 99);
-                
                 if(prob > 20) {
                     hipoteses.push({
                         doenca: doenca.nome,
@@ -320,7 +353,6 @@ export const Logic = {
                 }
             });
         });
-
         return hipoteses.sort((a,b) => b.probabilidade - a.probabilidade);
     },
 

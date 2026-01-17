@@ -1,57 +1,52 @@
-// MÓDULO DE API (CONEXÃO COM CÉREBRO E IA)
-// Centraliza todas as chamadas externas
-
-// Endereço do seu Backend Python (Heroku)
+// MÓDULO DE API v4 - Com Integração LLM
 const BASE_URL = "https://otto-api-dario-3a4d4f90581b.herokuapp.com";
 
 export const API = {
-    // 1. Busca o "Heart" (Protocolos Médicos)
+    // 1. Busca Protocolos (Heart)
     async getProtocolos() {
         try {
-            const response = await fetch(`${BASE_URL}/api/heart/knowledge`);
-            if (!response.ok) throw new Error("Falha ao carregar protocolos");
-            return await response.json();
-        } catch (error) {
-            console.error("Erro API Heart:", error);
-            return null; // Retorna nulo para a UI tratar (Modo Offline)
+            const res = await fetch(`${BASE_URL}/api/heart/knowledge`);
+            if (!res.ok) throw new Error("Falha Heart");
+            return await res.json();
+        } catch (e) {
+            console.error("Erro API Heart:", e);
+            return null;
         }
     },
 
-    // 2. Envia para o "Brain" (Processamento Clínico)
-    async processarTriagem(dadosPaciente) {
+    // 2. Processa Triagem Final (Brain Clássico)
+    async processarTriagem(payload) {
         try {
-            const response = await fetch(`${BASE_URL}/api/brain/process`, {
+            const res = await fetch(`${BASE_URL}/api/brain/process`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(dadosPaciente)
+                body: JSON.stringify(payload)
             });
-            return await response.json();
-        } catch (error) {
-            console.error("Erro API Brain:", error);
-            return { hipoteses: [] }; // Retorno seguro em caso de erro
+            return await res.json();
+        } catch (e) {
+            console.error("Erro API Brain:", e);
+            throw e; // Joga erro para ativar o modo offline
         }
     },
 
-    // 3. O SLOT DA IA (LLM - GPT-5 Nano)
-    // Futuramente, isso vai traduzir "fala do paciente" -> "JSON estruturado"
-    async processarTextoComIA(textoUsuario, contexto = "triagem") {
-        console.log(`[IA - GPT5Nano] Processando: "${textoUsuario}" no contexto: ${contexto}`);
-        
-        // --- TODO: FUTURA IMPLEMENTAÇÃO DA API ---
-        // const apiKey = "SUA_CHAVE_AQUI";
-        // const prompt = `Traduza para termos médicos: ${textoUsuario}`;
-        // ... fetch para OpenAI ou API proprietária ...
-        
-        // POR ENQUANTO (MOCK): Apenas simula um delay de pensamento e devolve o texto
-        // Isso garante que a UI já seja assíncrona (loading...) desde hoje.
-        return new Promise(resolve => {
-            setTimeout(() => {
-                resolve({
-                    textoOriginal: textoUsuario,
-                    entidadesDetectadas: [], // A IA preencheria isso (ex: ["febre", "dor"])
-                    sugestaoResposta: null
-                });
-            }, 800); // Simula 800ms de "pensamento"
-        });
+    // 3. NOVO: Transcrição Inteligente (Brain AI)
+    async transcreverQueixa(textoLivre) {
+        try {
+            console.log("🤖 Chamando GPT-4o-mini...");
+            const res = await fetch(`${BASE_URL}/api/brain/transcribe`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ queixa_livre: textoLivre })
+            });
+            
+            if (!res.ok) throw new Error("Erro na IA");
+            
+            const jsonIA = await res.json();
+            console.log("🤖 Resposta IA:", jsonIA);
+            return jsonIA;
+        } catch (e) {
+            console.warn("IA indisponível ou erro:", e);
+            return null; // Retorna nulo para seguir fluxo manual
+        }
     }
 };
